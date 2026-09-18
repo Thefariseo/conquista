@@ -25,7 +25,7 @@ export const SEATS: Seat[] = [
   { name: 'Casa Cobalto', color: '#2A6A96', land: '#AFC8DA', ink: '#F2F8FC', symbol: 'triangolo', pattern: 'punti' },
   { name: 'Casa Alloro', color: '#3E7A55', land: '#B6CFBB', ink: '#F1F9F2', symbol: 'cerchio', pattern: 'reticolo' },
   { name: 'Casa Vespro', color: '#774C94', land: '#CFBDDC', ink: '#F9F2FD', symbol: 'quadrato', pattern: 'verticale' },
-  { name: 'Casa Ambra', color: '#BE8118', land: '#E8D2A2', ink: '#FFF8E9', symbol: 'stella', pattern: 'onde' },
+  { name: 'Casa Ambra', color: '#B9750C', land: '#EFC078', ink: '#FFF8E9', symbol: 'stella', pattern: 'onde' },
   { name: 'Casa Ardesia', color: '#4B545E', land: '#BFC4CA', ink: '#F4F6F8', symbol: 'esagono', pattern: 'pieno' },
 ];
 
