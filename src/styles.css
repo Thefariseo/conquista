@@ -786,7 +786,8 @@ button {
 }
 
 .dado--perso {
-  opacity: 0.45;
+  opacity: 0.62;
+  filter: grayscale(0.35);
 }
 
 .dado--lancio {
