@@ -18,12 +18,12 @@ import type {
 } from './types';
 import { TERRITORY_IDS, type TerritoryId, territory } from './world';
 import { createRng, shuffle } from './rng';
-import { buildDeck, card, findSets, isValidSet, tradeValue, HAND_LIMIT } from './cards';
+import { buildDeck, card, findSets, isValidSet, setValue, HAND_LIMIT } from './cards';
 import { DOMINATION_OBJECTIVE, dealObjectives, isObjectiveComplete, ownedTerritories } from './objectives';
 import { maxAttackDice, maxDefenceDice, resolveRoll } from './combat';
 import {
   attackTargets,
-  connectedFriendly,
+  fortifyTargets,
   currentPlayerId,
   handOf,
   livingPlayers,
@@ -272,7 +272,7 @@ function tradeCards(state: GameState, id: PlayerId, ids: [string, string, string
   const cards = ids.map(card);
   if (!isValidSet(cards)) return 'Combinazione non valida.';
 
-  const armies = tradeValue(state.tradesDone);
+  const armies = setValue(cards);
   state.tradesDone += 1;
   p.cards = p.cards.filter((c) => !ids.includes(c));
   state.discard.push(...cards);
@@ -329,8 +329,9 @@ function rollAttack(state: GameState, id: PlayerId, dice: number, emit: Emit): s
   const from = state.territories[battle.from];
   const to = state.territories[battle.to];
   if (from.owner !== id) return 'Il territorio di partenza non è più tuo.';
+  if (maxAttackDice(from.armies) < 1)
+    return 'Nel territorio di partenza è rimasta una sola armata: lo scontro è esaurito.';
   const attackDice = Math.max(1, Math.min(dice, maxAttackDice(from.armies)));
-  if (attackDice < 1) return 'Armate insufficienti per attaccare.';
   const defenceDice = maxDefenceDice(to.armies);
   const defender = to.owner as PlayerId;
 
@@ -349,7 +350,7 @@ function rollAttack(state: GameState, id: PlayerId, dice: number, emit: Emit): s
     // le armate che hanno vinto entrano subito nel territorio: sul tavolo
     // nessuna casella resta mai sguarnita
     const movable = from.armies - 1;
-    const minMove = Math.max(1, Math.min(attackDice, movable));
+    const minMove = 1;
     from.armies -= minMove;
     to.armies = minMove;
     emit({ type: 'territorio/conquistato', player: id, from: defender, territory: battle.to });
@@ -409,7 +410,7 @@ function fortify(
   if (state.territories[from]?.owner !== id || state.territories[to]?.owner !== id)
     return 'Entrambi i territori devono essere tuoi.';
   if (from === to) return 'Scegli due territori diversi.';
-  if (!connectedFriendly(state, from).includes(to)) return 'I due territori non sono collegati.';
+  if (!fortifyTargets(state, from).includes(to)) return 'Lo spostamento avviene solo fra territori confinanti.';
   const max = state.territories[from].armies - 1;
   const n = Math.max(1, Math.min(armies, max));
   if (max < 1) return 'Deve restare almeno un’armata di presidio.';

@@ -12,7 +12,7 @@ import { conquestProbability, maxAttackDice } from '../game/combat';
 import { findSets } from '../game/cards';
 import {
   attackTargets,
-  connectedFriendly,
+  fortifyTargets,
   currentPlayer,
   enemyPressure,
   handOf,
@@ -31,10 +31,13 @@ interface Profile {
   regionGreed: number;
 }
 
+// Con tre dadi in difesa conquistare e' molto piu' arduo: le soglie sono
+// tarate sulle probabilita' reali di questo regolamento, non su quelle di
+// uno scontro con due soli dadi difensivi.
 const PROFILES: Record<BotLevel, Profile> = {
-  prudente: { attackThreshold: 0.72, pressThreshold: 0.55, defensive: 1.3, regionGreed: 0.6 },
-  navigato: { attackThreshold: 0.58, pressThreshold: 0.42, defensive: 1.0, regionGreed: 1.0 },
-  spietato: { attackThreshold: 0.46, pressThreshold: 0.33, defensive: 0.75, regionGreed: 1.5 },
+  prudente: { attackThreshold: 0.58, pressThreshold: 0.44, defensive: 1.3, regionGreed: 0.6 },
+  navigato: { attackThreshold: 0.43, pressThreshold: 0.3, defensive: 1.0, regionGreed: 1.0 },
+  spietato: { attackThreshold: 0.32, pressThreshold: 0.2, defensive: 0.75, regionGreed: 1.5 },
 };
 
 /** Prossima azione del giocatore di turno, oppure null se non è un bot. */
@@ -188,7 +191,7 @@ function fortifyAction(state: GameState, id: PlayerId): GameAction {
       const armies = state.territories[from].armies;
       if (armies < 2) continue;
       const rear = !isFrontier(state, from);
-      for (const to of connectedFriendly(state, from)) {
+      for (const to of fortifyTargets(state, from)) {
         if (!isFrontier(state, to)) continue;
         const need = enemyPressure(state, to) - state.territories[to].armies;
         const gain = need + (rear ? 6 : 0) - (isFrontier(state, from) ? enemyPressure(state, from) * 0.4 : 0);

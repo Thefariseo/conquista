@@ -18,11 +18,38 @@ export const SYMBOL_LABEL: Record<CardSymbol, string> = {
   sigillo: 'Sigillo',
 };
 
-/** valore in armate della n-esima combinazione giocata nella partita */
-const LADDER = [4, 6, 8, 10, 12, 15];
+/**
+ * Valore in armate di una combinazione. E' una tabella fissa, non una scala
+ * che cresce con la partita: conta solo che cosa hai in mano.
+ *
+ *   tre vessilli ............  4      uno di ogni simbolo ....  10
+ *   tre arieti ..............  6      sigillo + due uguali ...  12
+ *   tre falchi ..............  8
+ */
+export const SYMBOL_VALUE: Record<Exclude<CardSymbol, 'sigillo'>, number> = {
+  vessillo: 4,
+  ariete: 6,
+  falco: 8,
+};
 
-export function tradeValue(tradesDone: number): number {
-  return tradesDone < LADDER.length ? LADDER[tradesDone] : 15 + (tradesDone - LADDER.length + 1) * 5;
+export const MIXED_VALUE = 10;
+export const WILD_VALUE = 12;
+
+/** valore della combinazione, nella lettura piu' favorevole al giocatore */
+export function setValue(cards: Card[]): number {
+  if (!isValidSet(cards)) return 0;
+  const wilds = cards.filter((c) => c.symbol === 'sigillo').length;
+  const rest = cards.filter((c) => c.symbol !== 'sigillo').map((c) => c.symbol as keyof typeof SYMBOL_VALUE);
+  if (wilds >= 2) return WILD_VALUE;
+  if (wilds === 1) return new Set(rest).size === 1 ? WILD_VALUE : MIXED_VALUE;
+  return new Set(rest).size === 1 ? SYMBOL_VALUE[rest[0]] : MIXED_VALUE;
+}
+
+/** la combinazione piu' redditizia fra quelle giocabili, se ce n'e' una */
+export function bestSet(hand: Card[]): Card[] | null {
+  const sets = findSets(hand);
+  if (!sets.length) return null;
+  return sets.reduce((best, s) => (setValue(s) > setValue(best) ? s : best));
 }
 
 export function buildDeck(): Card[] {

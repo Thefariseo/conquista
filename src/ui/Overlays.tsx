@@ -109,17 +109,17 @@ const PASSI = [
   {
     titolo: '2 · Attacco',
     testo:
-      'Scegli un tuo territorio con almeno due armate, poi un territorio confinante avversario: si illuminano da soli. Lancia i dadi finché vuoi; a parità vince chi difende.',
+      'Scegli un tuo territorio con almeno due armate, poi un territorio confinante avversario: si illuminano da soli. Tu lanci fino a tre dadi, chi difende ne lancia uno per armata fino a tre: a parità vince sempre la difesa, quindi serve una netta superiorità.',
   },
   {
     titolo: '3 · Spostamento',
     testo:
-      'Una volta per turno puoi spostare armate fra due tuoi territori collegati da una catena di territori tuoi. Poi il turno passa.',
+      'Una volta per turno puoi spostare armate fra due tuoi territori confinanti, lasciandone almeno una di presidio. Poi il turno passa.',
   },
   {
     titolo: 'Carte e obiettivo',
     testo:
-      'Ogni turno in cui conquisti almeno un territorio ricevi una carta. Tre simboli uguali o tre diversi valgono armate extra. Vinci completando il tuo obiettivo segreto.',
+      'Ogni turno in cui conquisti almeno un territorio ricevi una carta. Tre simboli uguali o tre diversi formano una combinazione e valgono armate extra. Vinci completando il tuo obiettivo segreto.',
   },
 ];
 
@@ -237,23 +237,50 @@ export function RulesPanel({
           </li>
           <li>
             <strong>Attacco</strong> — attacchi un territorio confinante partendo da un tuo territorio con almeno due
-            armate. L’attaccante lancia fino a tre dadi (uno in meno delle armate presenti), il difensore fino a due. Si
-            confrontano i dadi più alti: a parità perde l’attaccante. Quando l’ultima armata difensiva cade, il
-            territorio passa di mano e le armate vincitrici vi entrano subito.
+            armate. L’attaccante lancia fino a <strong>tre</strong> dadi, sempre uno in meno delle armate presenti; il
+            difensore ne lancia uno per ogni armata che presidia il territorio, fino a <strong>tre</strong>. Si
+            confrontano i dadi più alti a coppie e <strong>a parità perde l’attaccante</strong>: difendere conviene, e
+            per conquistare serve una netta superiorità numerica. Quando cade l’ultima armata difensiva il territorio
+            passa di mano: vi entra subito un’armata e tu decidi quante altre farne avanzare. Puoi attaccare quante
+            volte vuoi, anche ripartendo dal territorio appena conquistato.
           </li>
           <li>
-            <strong>Spostamento</strong> — un solo trasferimento di armate fra due territori tuoi collegati da una catena
-            di territori tuoi. Deve restare almeno un’armata di presidio.
+            <strong>Spostamento</strong> — un solo trasferimento di armate fra due tuoi territori
+            <strong> confinanti</strong>, alla fine del turno. Deve restare almeno un’armata di presidio.
           </li>
         </ol>
 
         <h3>Carte conquista</h3>
         <p>
           Ogni turno in cui conquisti almeno un territorio peschi una carta. Tre simboli uguali o tre simboli diversi
-          formano una combinazione; il sigillo vale come qualunque simbolo. Il valore cresce a ogni combinazione giocata
-          nella partita: 4, 6, 8, 10, 12, 15, poi +5 ogni volta. Se possiedi un territorio raffigurato su una carta
-          giocata, ricevi due armate extra proprio lì. Con cinque carte in mano sei obbligato a giocarne una combinazione
-          all’inizio del rinforzo.
+          formano una combinazione; il sigillo vale come qualunque simbolo. Il valore è fisso e dipende solo dalla
+          combinazione:
+        </p>
+        <ul className="regolamento__tris">
+          <li>
+            <span>Tre vessilli</span>
+            <em>4 armate</em>
+          </li>
+          <li>
+            <span>Tre arieti</span>
+            <em>6 armate</em>
+          </li>
+          <li>
+            <span>Tre falchi</span>
+            <em>8 armate</em>
+          </li>
+          <li>
+            <span>Uno di ogni simbolo</span>
+            <em>10 armate</em>
+          </li>
+          <li>
+            <span>Sigillo più due simboli uguali</span>
+            <em>12 armate</em>
+          </li>
+        </ul>
+        <p>
+          Se possiedi un territorio raffigurato su una carta giocata, ricevi due armate extra proprio lì. Con cinque
+          carte in mano sei obbligato a giocare una combinazione all’inizio del rinforzo.
         </p>
 
         <h3>Macro-regioni</h3>

@@ -67,28 +67,20 @@ export function attackTargets(state: GameState, from: TerritoryId): TerritoryId[
   return territory(from).neighbours.filter((n) => state.territories[n].owner !== src.owner);
 }
 
-/** territori raggiungibili via catena di territori amici (per lo spostamento strategico) */
-export function connectedFriendly(state: GameState, from: TerritoryId): TerritoryId[] {
+/**
+ * Destinazioni dello spostamento strategico: solo territori **confinanti**
+ * dello stesso giocatore. Non esistono catene: si sposta da un territorio a
+ * quello accanto, una volta per turno.
+ */
+export function fortifyTargets(state: GameState, from: TerritoryId): TerritoryId[] {
   const owner = state.territories[from].owner;
   if (!owner) return [];
-  const seen = new Set<TerritoryId>([from]);
-  const queue = [from];
-  while (queue.length) {
-    const cur = queue.pop() as TerritoryId;
-    for (const n of territory(cur).neighbours) {
-      if (!seen.has(n) && state.territories[n].owner === owner) {
-        seen.add(n);
-        queue.push(n);
-      }
-    }
-  }
-  seen.delete(from);
-  return [...seen];
+  return territory(from).neighbours.filter((n) => state.territories[n].owner === owner);
 }
 
 export function fortifySources(state: GameState, id: PlayerId): TerritoryId[] {
   return ownedTerritories(state, id).filter(
-    (t) => state.territories[t].armies >= 2 && connectedFriendly(state, t).length > 0,
+    (t) => state.territories[t].armies >= 2 && fortifyTargets(state, t).length > 0,
   );
 }
 

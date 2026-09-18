@@ -14,7 +14,7 @@ import { SEATS } from './palette';
 import {
   attackSources,
   attackTargets,
-  connectedFriendly,
+  fortifyTargets,
   currentPlayer,
   fortifySources,
   reinforcementsFor,
@@ -158,7 +158,7 @@ export function GameScreen({ api, prefs, onPrefs, onExit, onNewGame }: GameScree
       if (origin) {
         TERRITORY_IDS.forEach((id) => (result[id] = 'spento'));
         result[origin] = 'selezionato';
-        set(connectedFriendly(state, origin), 'collegato');
+        set(fortifyTargets(state, origin), 'collegato');
         return result;
       }
       if (!state.fortifyUsed) set(fortifySources(state, me.id), 'selezionabile');
@@ -214,14 +214,14 @@ export function GameScreen({ api, prefs, onPrefs, onExit, onNewGame }: GameScree
       if (state.phase === 'spostamento') {
         if (state.fortifyUsed || moveDraft) return;
         if (!origin) {
-          if (owner === me.id && state.territories[id].armies >= 2 && connectedFriendly(state, id).length) setOrigin(id);
+          if (owner === me.id && state.territories[id].armies >= 2 && fortifyTargets(state, id).length) setOrigin(id);
           return;
         }
         if (id === origin) {
           setOrigin(null);
           return;
         }
-        if (connectedFriendly(state, origin).includes(id)) {
+        if (fortifyTargets(state, origin).includes(id)) {
           setMoveDraft({ from: origin, to: id });
           setOrigin(null);
           return;
@@ -528,7 +528,10 @@ function buildHint(
       }
     case 'attacco':
       if (state.battle?.advance) return 'Decidi quante armate entrano nel territorio conquistato.';
-      if (state.battle) return 'Lancia i dadi, oppure ritirati e scegli un altro fronte.';
+      if (state.battle)
+        return maxAttackDice(state.territories[state.battle.from].armies) < 1
+          ? 'Lo scontro è esaurito: da quel territorio resta una sola armata. Chiudi e scegli un altro fronte.'
+          : 'Lancia i dadi, oppure ritirati e scegli un altro fronte.';
       if (origin) return `Da ${territory(origin).name}: scegli uno dei territori evidenziati da attaccare.`;
       if (!attackSources(state, me.id).length)
         return 'Nessun attacco possibile: nessun tuo territorio di confine ha almeno due armate.';
@@ -538,7 +541,7 @@ function buildHint(
       if (state.fortifyUsed) return 'Hai già effettuato lo spostamento del turno: puoi chiudere il turno.';
       if (origin) return `Da ${territory(origin).name}: scegli dove spostare le armate.`;
       if (!fortifySources(state, me.id).length) return 'Nessuno spostamento possibile: puoi chiudere il turno.';
-      return 'Puoi spostare armate fra due tuoi territori collegati, poi chiudi il turno.';
+      return 'Puoi spostare armate fra due tuoi territori confinanti, poi chiudi il turno.';
     default:
       return '';
   }

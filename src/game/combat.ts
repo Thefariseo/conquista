@@ -2,14 +2,15 @@
  * Risoluzione dello scontro e calcolo esatto delle probabilità.
  *
  * Regola: l'attaccante lancia fino a 3 dadi (uno in meno delle armate
- * presenti), il difensore fino a 2 (una per armata). I dadi si confrontano
- * in ordine decrescente, a parita' vince il difensore.
+ * presenti), il difensore fino a 3 (uno per armata presente). I dadi si
+ * confrontano a coppie in ordine decrescente e a parita' vince il difensore:
+ * difendere conviene, e conquistare richiede una netta superiorita'.
  */
 import { rollDice, type RngState } from './rng';
 import type { RollResult } from './types';
 
 export const MAX_ATTACK_DICE = 3;
-export const MAX_DEFENCE_DICE = 2;
+export const MAX_DEFENCE_DICE = 3;
 
 export function maxAttackDice(armies: number): number {
   return Math.max(0, Math.min(MAX_ATTACK_DICE, armies - 1));

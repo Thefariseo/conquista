@@ -5,7 +5,7 @@ disegnata a mano, armate, dadi, carte conquista e obiettivi segreti. Nessuna
 installazione per chi gioca, nessun account, nessuna connessione necessaria.
 
 <p align="center">
-  <em>44 territori · 6 macro-regioni · da 2 a 6 giocatori · single player contro i bot, hot seat, predisposto per l'online</em>
+  <em>42 territori · 6 macro-regioni · da 2 a 6 giocatori · single player contro i bot, hot seat, predisposto per l'online</em>
 </p>
 
 ---
@@ -22,7 +22,10 @@ repository (`tools/`).
 
 Quello che il progetto riprende è ciò che non appartiene a nessuno: la
 *grammatica* dei giochi di conquista territoriale — territori confinanti,
-armate, dadi contrapposti, bonus di regione, carte, obiettivi.
+armate, dadi contrapposti, bonus di regione, carte, obiettivi. Il regolamento
+segue da vicino quello classico all'italiana: **il difensore lancia fino a tre
+dadi**, le combinazioni di carte hanno valori fissi e lo spostamento
+strategico avviene solo fra territori confinanti.
 
 ## Cosa c'è dentro
 
@@ -30,10 +33,11 @@ armate, dadi contrapposti, bonus di regione, carte, obiettivi.
   griglie), rotte marittime, rilievo delle coste, bussola, zoom e trascinamento.
 - **Turno in tre fasi** — rinforzo, attacco, spostamento — scandite da una
   plancia sempre visibile.
-- **Combattimento a dadi** con probabilità di riuscita calcolata in modo esatto,
-  dadi disegnati come oggetti fisici e perdite mostrate sulla carta.
-- **Carte conquista** con combinazioni a valore crescente e bonus sul territorio
-  raffigurato.
+- **Combattimento a dadi** all'italiana — fino a tre dadi anche in difesa —
+  con probabilità di riuscita calcolata in modo esatto, dadi disegnati come
+  oggetti fisici e perdite mostrate sulla carta.
+- **Carte conquista** con la tabella classica delle combinazioni (4, 6, 8, 10,
+  12 armate) e bonus sul territorio raffigurato.
 - **Obiettivi segreti** (o modalità dominio totale), eliminazione dei giocatori
   con passaggio delle carte, condizioni di vittoria verificate a ogni azione.
 - **Cronologia** completa della partita, riga per riga.
@@ -72,17 +76,21 @@ In sintesi:
    più il bonus di ogni macro-regione controllata per intero. Le armate si
    posano toccando i propri territori sulla carta.
 2. **Attacco** — scegli un tuo territorio con almeno due armate: i bersagli
-   possibili si illuminano da soli. L'attaccante lancia fino a tre dadi (uno in
-   meno delle armate presenti), il difensore fino a due; si confrontano i dadi
-   più alti e **a parità perde l'attaccante**. Caduta l'ultima armata difensiva
-   il territorio cambia proprietario e le armate vincitrici vi entrano subito.
-3. **Spostamento** — un solo trasferimento per turno fra due territori tuoi
-   collegati da una catena di territori tuoi.
+   possibili si illuminano da soli. L'attaccante lancia fino a **tre** dadi,
+   sempre uno in meno delle armate presenti; il difensore ne lancia **uno per
+   armata, fino a tre**. Si confrontano i dadi più alti a coppie e **a parità
+   perde l'attaccante**: difendere conviene, e per conquistare serve una netta
+   superiorità. Caduta l'ultima armata difensiva il territorio cambia
+   proprietario, vi entra subito un'armata e decidi tu quante altre farne
+   avanzare.
+3. **Spostamento** — un solo trasferimento per turno fra due tuoi territori
+   **confinanti**, lasciando almeno un'armata di presidio.
 
-Ogni turno in cui conquisti almeno un territorio ricevi una carta. Tre simboli
-uguali o tre diversi valgono armate extra, con valore crescente: 4, 6, 8, 10,
-12, 15, poi +5 ogni volta. Con cinque carte in mano sei obbligato a giocarne
-una combinazione.
+Ogni turno in cui conquisti almeno un territorio ricevi una carta. Il valore
+delle combinazioni è fisso: tre vessilli 4, tre arieti 6, tre falchi 8, uno di
+ogni simbolo 10, sigillo più due uguali 12. Se possiedi un territorio
+raffigurato su una carta giocata ricevi due armate extra proprio lì. Con cinque
+carte in mano sei obbligato a giocare una combinazione.
 
 Si vince completando il proprio obiettivo segreto, oppure restando l'unico in
 gioco (nella modalità *dominio totale*, conquistando tutti i territori).
@@ -103,14 +111,18 @@ bonus si aggiornano da soli. Il generatore verifica che il grafo dei confini sia
 simmetrico e connesso, e si rifiuta di scrivere una carta mal formata.
 
 ```
-Territori: 44  Regioni: 6
-  Aurelia    bonus 5   9 territori
-  Norvenda   bonus 7  12 territori
-  Kethra     bonus 3   6 territori
-  Sarmenia   bonus 3   6 territori
-  Meridiana  bonus 4   7 territori
-  Ysmar      bonus 2   4 territori
+Territori: 42  Regioni: 6
+  Aurelia    bonus 5   9 territori     3 collegamenti esterni
+  Sarmenia   bonus 5   7 territori     5 collegamenti esterni
+  Norvenda   bonus 7  12 territori     6 collegamenti esterni
+  Kethra     bonus 3   6 territori     4 collegamenti esterni
+  Meridiana  bonus 2   4 territori     2 collegamenti esterni
+  Ysmar      bonus 2   4 territori     2 collegamenti esterni
 ```
+
+Dimensioni, bonus e numero di strozzature ricalcano quelli di un tabellone
+classico: l'arcipelago è piccolo e difendibile, la grande regione orientale
+rende molto ma è esposta su sei fronti.
 
 ## Architettura
 
@@ -178,9 +190,10 @@ npm test
 ```
 
 Coprono la geometria della carta (confini simmetrici, grafo connesso, nomi
-unici), il combattimento (parità al difensore, limiti dei dadi, monotonia delle
-probabilità, determinismo del seme), la sequenza del turno, le carte e — come
-prova d'insieme — **partite complete fra bot** che devono concludersi con un
+unici), il combattimento (parità al difensore, tre dadi in difesa, monotonia
+delle probabilità, determinismo del seme), la sequenza del turno, lo
+spostamento fra soli confinanti, la tabella delle combinazioni e — come prova
+d'insieme — **partite complete fra bot** che devono concludersi con un
 vincitore senza mai violare le invarianti (ogni territorio presidiato da almeno
 un'armata, chi è vivo possiede territori, chi è eliminato non ne possiede).
 

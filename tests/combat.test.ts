@@ -8,6 +8,8 @@ describe('scontro', () => {
     expect(compareDice([5], [4])).toEqual({ attackerLosses: 0, defenderLosses: 1 });
     expect(compareDice([6, 5], [6, 4])).toEqual({ attackerLosses: 1, defenderLosses: 1 });
     expect(compareDice([6, 5, 2], [1, 1])).toEqual({ attackerLosses: 0, defenderLosses: 2 });
+    // tre dadi contro tre: si confrontano tutte e tre le coppie
+    expect(compareDice([6, 4, 3], [5, 4, 2])).toEqual({ attackerLosses: 1, defenderLosses: 2 });
   });
 
   it('limita i dadi alle armate disponibili', () => {
@@ -16,7 +18,10 @@ describe('scontro', () => {
     expect(maxAttackDice(4)).toBe(3);
     expect(maxAttackDice(10)).toBe(3);
     expect(maxDefenceDice(1)).toBe(1);
-    expect(maxDefenceDice(5)).toBe(2);
+    expect(maxDefenceDice(2)).toBe(2);
+    // il difensore arriva a tre dadi: e' la regola che rende ardua la conquista
+    expect(maxDefenceDice(3)).toBe(3);
+    expect(maxDefenceDice(5)).toBe(3);
   });
 
   it('calcola probabilita’ coerenti e monotone', () => {
@@ -24,6 +29,8 @@ describe('scontro', () => {
     expect(conquestProbability(2, 1)).toBeGreaterThan(0.4);
     expect(conquestProbability(2, 1)).toBeLessThan(0.5);
     expect(conquestProbability(10, 1)).toBeGreaterThan(0.99);
+    // con tre dadi in difesa la parita' numerica non basta quasi mai
+    expect(conquestProbability(5, 5)).toBeLessThan(0.3);
     for (let d = 1; d <= 8; d++) {
       for (let a = 2; a <= 14; a++) {
         expect(conquestProbability(a + 1, d)).toBeGreaterThanOrEqual(conquestProbability(a, d) - 1e-9);
@@ -33,11 +40,11 @@ describe('scontro', () => {
   });
 
   it('e’ deterministico a parita’ di seme', () => {
-    const a = resolveRoll(createRng(42), 3, 2, 5);
-    const b = resolveRoll(createRng(42), 3, 2, 5);
+    const a = resolveRoll(createRng(42), 3, 3, 5);
+    const b = resolveRoll(createRng(42), 3, 3, 5);
     expect(a[0]).toEqual(b[0]);
     expect(a[0].attack).toHaveLength(3);
-    expect(a[0].defence).toHaveLength(2);
-    expect(a[0].attackerLosses + a[0].defenderLosses).toBe(2);
+    expect(a[0].defence).toHaveLength(3);
+    expect(a[0].attackerLosses + a[0].defenderLosses).toBe(3);
   });
 });

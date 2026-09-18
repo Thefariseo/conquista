@@ -61,8 +61,9 @@ function BattleTray({
   onRoll,
   onCancel,
 }: BattleTrayProps) {
-  const [dice, setDice] = useState(maxDice);
+  const [dice, setDice] = useState(Math.max(1, maxDice));
   useEffect(() => setDice((d) => Math.min(Math.max(1, d), Math.max(1, maxDice))), [maxDice]);
+  const esaurito = maxDice < 1;
 
   const attackOutcomes = lastRoll
     ? lastRoll.attack.map((v, i) =>
@@ -97,29 +98,39 @@ function BattleTray({
           {lastRoll.conquered
             ? 'Territorio conquistato.'
             : `Perdite: tu −${lastRoll.attackerLosses}, avversario −${lastRoll.defenderLosses}.`}
+          {esaurito && ' Resta una sola armata: da qui non puoi proseguire.'}
         </p>
       )}
 
       <div className="tavolino__comandi">
-        <div className="scelta-dadi" role="group" aria-label="Quanti dadi lanciare">
-          {Array.from({ length: Math.max(1, maxDice) }, (_, i) => i + 1).map((n) => (
-            <button
-              key={n}
-              type="button"
-              className={`scelta-dadi__voce${n === dice ? ' scelta-dadi__voce--attiva' : ''}`}
-              onClick={() => setDice(n)}
-              aria-pressed={n === dice}
-            >
-              {n}
+        {!esaurito && (
+          <>
+            <div className="scelta-dadi" role="group" aria-label="Quanti dadi lanciare">
+              {Array.from({ length: maxDice }, (_, i) => i + 1).map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  className={`scelta-dadi__voce${n === dice ? ' scelta-dadi__voce--attiva' : ''}`}
+                  onClick={() => setDice(n)}
+                  aria-pressed={n === dice}
+                >
+                  {n}
+                </button>
+              ))}
+              <span className="scelta-dadi__nota">{dice === 1 ? 'dado' : 'dadi'}</span>
+            </div>
+            <button type="button" className="bottone bottone--primario" onClick={() => onRoll(dice)} disabled={rolling}>
+              <Icona nome="dadi" /> Lancia
             </button>
-          ))}
-          <span className="scelta-dadi__nota">{dice === 1 ? 'dado' : 'dadi'}</span>
-        </div>
-        <button type="button" className="bottone bottone--primario" onClick={() => onRoll(dice)} disabled={rolling}>
-          <Icona nome="dadi" /> Lancia
-        </button>
-        <button type="button" className="bottone bottone--fantasma" onClick={onCancel} disabled={rolling}>
-          Ritirati
+          </>
+        )}
+        <button
+          type="button"
+          className={`bottone ${esaurito ? 'bottone--primario' : 'bottone--fantasma'}`}
+          onClick={onCancel}
+          disabled={rolling}
+        >
+          {esaurito ? 'Chiudi' : 'Ritirati'}
         </button>
       </div>
     </section>

@@ -1,7 +1,7 @@
 /** Il ventaglio delle carte conquista, come un mazzetto tenuto in mano. */
 import { useEffect, useState } from 'react';
 import type { Card, GameState, PlayerId } from '../game/types';
-import { SYMBOL_LABEL, findSets, tradeValue, HAND_LIMIT } from '../game/cards';
+import { SYMBOL_LABEL, SYMBOL_VALUE, MIXED_VALUE, WILD_VALUE, bestSet, findSets, setValue, HAND_LIMIT } from '../game/cards';
 import { handOf } from '../game/selectors';
 import { territoryName } from '../game/world';
 import { symbolPath } from './palette';
@@ -34,8 +34,10 @@ export function CardsTray({
   useEffect(() => setSelected([]), [player, hand.length, open]);
 
   const sets = findSets(hand);
-  const value = tradeValue(state.tradesDone);
+  const scelte = hand.filter((c) => selected.includes(c.id));
   const valid = selected.length === 3 && sets.some((s) => s.every((c) => selected.includes(c.id)));
+  const value = valid ? setValue(scelte) : 0;
+  const migliore = bestSet(hand);
 
   const toggle = (id: string) =>
     setSelected((cur) => (cur.includes(id) ? cur.filter((c) => c !== id) : cur.length < 3 ? [...cur, id] : cur));
@@ -47,8 +49,10 @@ export function CardsTray({
           Carte conquista <span className="mazzo__conteggio">{hand.length}</span>
         </h2>
         <p>
-          Tre simboli uguali o tre diversi valgono <strong>{value} armate</strong>. Con {HAND_LIMIT} carte in mano sei
-          obbligato a giocarne una combinazione.
+          Tre vessilli <strong>{SYMBOL_VALUE.vessillo}</strong>, tre arieti <strong>{SYMBOL_VALUE.ariete}</strong>, tre
+          falchi <strong>{SYMBOL_VALUE.falco}</strong>, uno di ogni simbolo <strong>{MIXED_VALUE}</strong>, sigillo più
+          due uguali <strong>{WILD_VALUE}</strong>. Con {HAND_LIMIT} carte in mano sei obbligato a giocare una
+          combinazione.
         </p>
         <button type="button" className="bottone-icona" onClick={onClose} aria-label="Chiudi le carte">
           <Icona nome="chiudi" />
@@ -66,10 +70,10 @@ export function CardsTray({
         <button
           type="button"
           className="bottone bottone--fantasma"
-          disabled={!sets.length}
-          onClick={() => setSelected(sets[0].map((c) => c.id))}
+          disabled={!migliore}
+          onClick={() => migliore && setSelected(migliore.map((c) => c.id))}
         >
-          Trova una combinazione
+          Trova la combinazione migliore
         </button>
         <button
           type="button"
@@ -77,7 +81,7 @@ export function CardsTray({
           disabled={!valid || !canPlay}
           onClick={() => valid && onPlay(selected as [string, string, string])}
         >
-          Gioca per {value} armate
+          {valid ? `Gioca per ${value} armate` : 'Scegli tre carte'}
         </button>
       </div>
     </section>

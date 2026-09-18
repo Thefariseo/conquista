@@ -5,8 +5,7 @@ import { botAction } from '../src/ai/bot';
 import { TERRITORY_IDS, territory } from '../src/game/world';
 import { currentPlayerId, reinforcementsFor } from '../src/game/selectors';
 import { ownedTerritories } from '../src/game/objectives';
-import { isValidSet, tradeValue } from '../src/game/cards';
-import { card } from '../src/game/cards';
+import { card, isValidSet, setValue } from '../src/game/cards';
 
 const quickGame = (overrides: Partial<Parameters<typeof createGame>[0]> = {}) =>
   createGame({
@@ -168,8 +167,9 @@ describe('regole di combattimento e spostamento', () => {
       state = apply(state, { type: 'attacco/lancia', player: me, dice: 3 });
     }
     expect(state.territories[to].owner).toBe(me);
-    // le armate vincenti entrano subito: il territorio non resta mai vuoto
+    // un'armata entra subito: il territorio non resta mai vuoto
     expect(state.territories[to].armies).toBeGreaterThanOrEqual(1);
+    expect(state.battle!.advance!.min).toBe(1);
     expect(state.battle?.advance).toBeTruthy();
     const { max } = state.battle!.advance!;
     state = apply(state, { type: 'attacco/avanza', player: me, armies: max });
@@ -179,43 +179,63 @@ describe('regole di combattimento e spostamento', () => {
     expectInvariants(state);
   });
 
-  it('non consente spostamenti fra territori scollegati', () => {
+  it('consente lo spostamento solo fra territori confinanti, una volta per turno', () => {
     let state = ready();
     const me = currentPlayerId(state);
     state = apply(state, { type: 'fase/avanza', player: me });
     expect(state.phase).toBe('spostamento');
     const mine = ownedTerritories(state, me);
-    const from = mine.find((t) => state.territories[t].armies >= 2)!;
-    const unreachable = mine.find(
-      (t) => t !== from && !territory(from).neighbours.includes(t) && state.territories[t].owner === me,
+
+    // due territori propri ma non confinanti: rifiutato
+    const lontani = mine.find(
+      (t) => state.territories[t].armies >= 2 && mine.some((u) => u !== t && !territory(t).neighbours.includes(u)),
+    )!;
+    const nonConfinante = mine.find((u) => u !== lontani && !territory(lontani).neighbours.includes(u))!;
+    const rifiuto = applyAction(state, {
+      type: 'spostamento/esegui',
+      player: me,
+      from: lontani,
+      to: nonConfinante,
+      armies: 1,
+    });
+    expect(rifiuto.ok).toBe(false);
+    if (!rifiuto.ok) expect(rifiuto.reason).toMatch(/confinanti/);
+
+    // due territori propri e confinanti: accettato, ma uno solo per turno
+    const from = mine.find(
+      (t) => state.territories[t].armies >= 2 && territory(t).neighbours.some((n) => mine.includes(n)),
     );
-    if (unreachable) {
-      const result = applyAction(state, {
-        type: 'spostamento/esegui',
-        player: me,
-        from,
-        to: unreachable,
-        armies: 1,
-      });
-      // se non sono collegati da una catena amica, il motore deve rifiutare
-      const connected = result.ok;
-      if (!connected) expect(result.reason).toMatch(/collegati/);
-    }
+    if (!from) return;
+    const to = territory(from).neighbours.find((n) => mine.includes(n))!;
+    const partenza = state.territories[from].armies;
+    state = apply(state, { type: 'spostamento/esegui', player: me, from, to, armies: 1 });
+    expect(state.territories[from].armies).toBe(partenza - 1);
+    expect(state.fortifyUsed).toBe(true);
+    expect(applyAction(state, { type: 'spostamento/esegui', player: me, from, to, armies: 1 }).ok).toBe(false);
   });
 });
 
 describe('carte conquista', () => {
+  const conSimbolo = (simbolo: string, quante: number) =>
+    TERRITORY_IDS.map((t) => card(`carta-${t}`))
+      .filter((c) => c.symbol === simbolo)
+      .slice(0, quante);
+
   it('riconosce le combinazioni valide', () => {
-    const tris = [card('carta-valdoria'), card('carta-osmara'), card('carta-lindaro')];
-    expect(tris.map((c) => c.symbol)).toBeTruthy();
-    expect(isValidSet([card('carta-sigillo-1'), card('carta-sigillo-2'), card('carta-valdoria')])).toBe(true);
+    expect(isValidSet(conSimbolo('vessillo', 3))).toBe(true);
+    expect(isValidSet([...conSimbolo('vessillo', 1), ...conSimbolo('ariete', 1), ...conSimbolo('falco', 1)])).toBe(true);
+    expect(isValidSet([card('carta-sigillo-1'), card('carta-sigillo-2'), ...conSimbolo('vessillo', 1)])).toBe(true);
+    expect(isValidSet([...conSimbolo('vessillo', 2), ...conSimbolo('ariete', 1)])).toBe(false);
   });
 
-  it('applica la scala crescente dei valori', () => {
-    expect(tradeValue(0)).toBe(4);
-    expect(tradeValue(5)).toBe(15);
-    expect(tradeValue(6)).toBe(20);
-    expect(tradeValue(7)).toBe(25);
+  it('valuta le combinazioni con la tabella fissa', () => {
+    expect(setValue(conSimbolo('vessillo', 3))).toBe(4);
+    expect(setValue(conSimbolo('ariete', 3))).toBe(6);
+    expect(setValue(conSimbolo('falco', 3))).toBe(8);
+    expect(setValue([...conSimbolo('vessillo', 1), ...conSimbolo('ariete', 1), ...conSimbolo('falco', 1)])).toBe(10);
+    expect(setValue([card('carta-sigillo-1'), ...conSimbolo('falco', 2)])).toBe(12);
+    // il valore non dipende da quante combinazioni sono gia' state giocate
+    expect(setValue(conSimbolo('vessillo', 3))).toBe(4);
   });
 });
 

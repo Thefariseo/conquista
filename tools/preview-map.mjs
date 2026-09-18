@@ -16,7 +16,12 @@ const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb.x} ${vb.y} ${
 <rect x="${vb.x}" y="${vb.y}" width="1600" height="${Math.round((1600 * vb.height) / vb.width)}" fill="#EDE4D3"/>
 ${W.landmasses.map((l) => `<path d="${l.path}" fill="none" stroke="#B9A88C" stroke-width="14" stroke-linejoin="round"/>`).join('\n')}
 ${W.territories.map((t) => `<path d="${t.path}" fill="${colors[regionIndex[t.region]]}" fill-opacity="0.5" stroke="#3B3229" stroke-width="2" stroke-linejoin="round"/>`).join('\n')}
-${W.seaRoutes.map((r) => `<path d="M${r.a.x} ${r.a.y} Q ${(r.a.x + r.b.x) / 2} ${(r.a.y + r.b.y) / 2 - 60} ${r.b.x} ${r.b.y}" fill="none" stroke="#7A6A55" stroke-width="3" stroke-dasharray="10 12"/>`).join('\n')}
+${W.seaRoutes
+  .map((r) => {
+    const curva = Math.min(150, 45 + Math.hypot(r.b.x - r.a.x, r.b.y - r.a.y) * 0.07);
+    return `<path d="M${r.a.x} ${r.a.y} Q ${(r.a.x + r.b.x) / 2} ${(r.a.y + r.b.y) / 2 - curva} ${r.b.x} ${r.b.y}" fill="none" stroke="#7A6A55" stroke-width="3" stroke-dasharray="10 12"/>`;
+  })
+  .join('\n')}
 ${W.territories.map((t) => `<circle cx="${t.center.x}" cy="${t.center.y}" r="18" fill="#fff" stroke="#3B3229" stroke-width="2"/><text x="${t.center.x}" y="${t.center.y + 34}" font-family="Georgia" font-size="19" text-anchor="middle" fill="#3B3229">${t.name}</text>`).join('\n')}
 ${W.regions.map((r) => `<text x="${r.label.x}" y="${r.label.y}" font-family="Georgia" font-size="42" letter-spacing="6" text-anchor="middle" fill="#8B7B63">${r.name.toUpperCase()}</text>`).join('\n')}
 </svg>`;

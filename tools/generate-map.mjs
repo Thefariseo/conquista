@@ -297,7 +297,7 @@ for (const region of REGIONS) {
     territories: territories.filter((t) => t.region === region.id).map((t) => t.id),
     label: {
       x: fmt((Math.min(...xs) + Math.max(...xs)) / 2),
-      y: fmt(Math.min(...ys) - SIZE * 2.4),
+      y: fmt(Math.min(...ys) - SIZE * 3),
     },
   });
 }
@@ -312,8 +312,11 @@ out.seaRoutes = SEA_ROUTES.map(([a, b]) => ({
 
 const allX = [...cells.values()].flatMap((c) => [c.center.x - SIZE, c.center.x + SIZE]);
 const allY = [...cells.values()].flatMap((c) => [c.center.y - SIZE, c.center.y + SIZE]);
+// i nomi delle macro-regioni stanno sopra la terra emersa: il tabellone deve
+// lasciare spazio anche a loro, altrimenti la cornice li taglia
+const labelY = out.regions.map((r) => r.label.y - SIZE * 1.4);
 const minX = Math.min(...allX) - GRID.margin;
-const minY = Math.min(...allY) - GRID.margin;
+const minY = Math.min(...allY, ...labelY) - GRID.margin;
 const maxX = Math.max(...allX) + GRID.margin;
 const maxY = Math.max(...allY) + GRID.margin;
 out.viewBox = { x: fmt(minX), y: fmt(minY), width: fmt(maxX - minX), height: fmt(maxY - minY) };
@@ -343,7 +346,9 @@ while (queue.length) {
 if (seen.size !== out.territories.length) problems.push(`mappa non connessa (${seen.size}/${out.territories.length})`);
 if (problems.length) {
   console.error('PROBLEMI:\n - ' + problems.join('\n - '));
-  process.exit(1);
+  // in fase di disegno del mondo serve poter guardare una carta incompleta:
+  //   CONQUISTA_BOZZA=1 npm run genmap
+  if (!process.env.CONQUISTA_BOZZA) process.exit(1);
 }
 
 // --- 7. scrittura --------------------------------------------------------

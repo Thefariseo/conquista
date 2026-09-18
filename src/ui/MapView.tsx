@@ -290,10 +290,7 @@ export const MapView = memo(function MapView({
 
           <g className="mappa__rotte" aria-hidden="true">
             {WORLD.seaRoutes.map((r) => (
-              <path
-                key={`${r.from}-${r.to}`}
-                d={`M${r.a.x} ${r.a.y} Q ${(r.a.x + r.b.x) / 2} ${(r.a.y + r.b.y) / 2 - 70} ${r.b.x} ${r.b.y}`}
-              />
+              <path key={`${r.from}-${r.to}`} d={rottaMarittima(r.a, r.b)} />
             ))}
           </g>
 
@@ -424,6 +421,14 @@ export const MapView = memo(function MapView({
     </div>
   );
 });
+
+/** Arco di una rotta marittima: piu' e' lunga, piu' si inarca sull'oceano
+ *  aperto, cosi' non attraversa le terre emerse che le stanno in mezzo. */
+function rottaMarittima(a: { x: number; y: number }, b: { x: number; y: number }): string {
+  const lunghezza = Math.hypot(b.x - a.x, b.y - a.y);
+  const curva = Math.min(150, 45 + lunghezza * 0.07);
+  return `M${a.x} ${a.y} Q ${(a.x + b.x) / 2} ${(a.y + b.y) / 2 - curva} ${b.x} ${b.y}`;
+}
 
 function Compass({ x, y }: { x: number; y: number }) {
   const punte = [0, 90, 180, 270];

@@ -1,7 +1,12 @@
 /**
  * Configurazione dell'atlante di VHALDOR — mondo interamente originale.
  *
- * Ogni macro-regione è disegnata come una silhouette ASCII su un reticolo
+ * La struttura ricalca quella di un tabellone classico da gioco di conquista:
+ * sei macro-regioni di 9, 4, 7, 6, 12 e 4 territori (42 in tutto) con bonus
+ * 5, 2, 5, 3, 7, 2, e una rete di rotte marittime che riproduce le stesse
+ * strozzature strategiche. Nomi, forme e grafica restano inventati.
+ *
+ * Ogni macro-regione e' disegnata come una silhouette ASCII su un reticolo
  * esagonale condiviso ('#' = terra emersa, tutto il resto = oceano).
  * Il generatore suddivide poi ogni silhouette in territori organici.
  */
@@ -18,7 +23,7 @@ export const REGIONS = [
     name: 'Aurelia',
     bonus: 5,
     accent: '#B4763C',
-    origin: { col: 2, row: 1 },
+    origin: { col: 1, row: 1 },
     territories: [
       'Valdoria', 'Corveno', 'Brantera', 'Osmara', 'Lindaro',
       'Tarvena', 'Sepria', 'Numira', 'Calvera',
@@ -37,11 +42,27 @@ export const REGIONS = [
     ],
   },
   {
+    id: 'sarmenia',
+    name: 'Sarmenia',
+    bonus: 5,
+    accent: '#9A6B7B',
+    origin: { col: 18, row: 4 },
+    territories: ['Nadira', 'Olvenna', 'Pirenne', 'Quassar', 'Rovinal', 'Sulmera', 'Umbrasi'],
+    art: [
+      '...#####...',
+      '..########.',
+      '.##########',
+      '.#########.',
+      '..#######..',
+      '...#####...',
+    ],
+  },
+  {
     id: 'norvenda',
     name: 'Norvenda',
     bonus: 7,
     accent: '#5E7C8A',
-    origin: { col: 26, row: 0 },
+    origin: { col: 30, row: 0 },
     territories: [
       'Arkhald', 'Belgora', 'Cirvask', 'Drossen', 'Ezimar', 'Fenvard',
       'Gholmir', 'Irunta', 'Jarnok', 'Kovarn', 'Lemska', 'Myrrad',
@@ -77,38 +98,20 @@ export const REGIONS = [
     ],
   },
   {
-    id: 'sarmenia',
-    name: 'Sarmenia',
-    bonus: 3,
-    accent: '#9A6B7B',
-    origin: { col: 33, row: 12 },
-    territories: ['Nadira', 'Olvenna', 'Pirenne', 'Quassar', 'Rovinal', 'Sulmera'],
-    art: [
-      '...#####..',
-      '..#######.',
-      '.########.',
-      '.########.',
-      '..######..',
-      '...####...',
-    ],
-  },
-  {
     id: 'meridiana',
     name: 'Meridiana',
-    bonus: 4,
+    bonus: 2,
     accent: '#6F8C57',
-    origin: { col: 5, row: 15 },
-    territories: ['Talcora', 'Umbrasi', 'Velmora', 'Xanto', 'Yrrena', 'Zalvar', 'Adunis'],
+    origin: { col: 5, row: 14 },
+    territories: ['Talcora', 'Velmora', 'Yrrena', 'Zalvar'],
     art: [
-      '...#####...',
-      '..#######..',
-      '.########..',
-      '.#######...',
-      '..######...',
-      '..######...',
-      '...####....',
-      '...###.....',
-      '....##.....',
+      '..#####..',
+      '.#######.',
+      '.######..',
+      '..#####..',
+      '..####...',
+      '...###...',
+      '...##....',
     ],
   },
   {
@@ -116,7 +119,7 @@ export const REGIONS = [
     name: 'Ysmar',
     bonus: 2,
     accent: '#7E8AA6',
-    origin: { col: 37, row: 22 },
+    origin: { col: 36, row: 17 },
     territories: ['Halvin', 'Inuska', 'Jaraq', 'Kolmen'],
     art: [
       '..####..',
@@ -129,15 +132,20 @@ export const REGIONS = [
 
 /**
  * Rotte marittime: collegamenti espliciti fra territori costieri di
- * macro-regioni diverse. Vengono disegnate come linee tratteggiate.
+ * macro-regioni diverse. Riproducono le strozzature classiche del tabellone
+ * (il ponte fra i due continenti occidentali, i due passaggi fra la regione
+ * centrale e quella meridionale, l'isolamento relativo dell'arcipelago).
  */
 export const SEA_ROUTES = [
-  ['numira', 'talcora'],      // Aurelia  -> Meridiana
-  ['brantera', 'arkhald'],    // Aurelia  -> Norvenda
-  ['zalvar', 'baltora'],      // Meridiana -> Kethra
-  ['garrun', 'pirenne'],      // Kethra   -> Sarmenia
-  ['myrrad', 'cendra'],       // Norvenda -> Kethra
-  ['lemska', 'nadira'],       // Norvenda -> Sarmenia
-  ['sulmera', 'halvin'],      // Sarmenia -> Ysmar
-  ['rovinal', 'inuska'],      // Sarmenia -> Ysmar
+  ['valdoria', 'belgora'],    // rotta polare: Aurelia -> Norvenda
+  ['tarvena', 'quassar'],     // Aurelia   -> Sarmenia
+  ['calvera', 'talcora'],     // Aurelia   -> Meridiana
+  ['yrrena', 'ephira'],       // Meridiana -> Kethra
+  ['sulmera', 'cendra'],      // Sarmenia  -> Kethra (passaggio occidentale)
+  ['umbrasi', 'baltora'],     // Sarmenia  -> Kethra (passaggio orientale)
+  ['pirenne', 'ezimar'],      // Sarmenia  -> Norvenda
+  ['rovinal', 'lemska'],      // Sarmenia  -> Norvenda
+  ['dusmar', 'lemska'],       // Kethra    -> Norvenda
+  ['myrrad', 'halvin'],       // Norvenda  -> Ysmar
+  ['myrrad', 'inuska'],       // Norvenda  -> Ysmar
 ];

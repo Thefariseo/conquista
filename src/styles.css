@@ -1231,9 +1231,24 @@ button {
   color: var(--testo);
 }
 
-.regolamento__regioni {
+.regolamento__regioni,
+.regolamento__tris {
   list-style: none;
   padding: 0;
+}
+
+.regolamento__tris li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+  border-bottom: 1px dashed var(--bordo);
+}
+
+.regolamento__tris em {
+  font-style: normal;
+  color: var(--ottone);
+  white-space: nowrap;
 }
 
 .regolamento__regioni li {

@@ -30,11 +30,11 @@ export const GARRISON_GOAL = 18;
 
 export function buildObjectiveDeck(players: { id: PlayerId; name: string }[]): Objective[] {
   const deck: Objective[] = [
-    regionsObjective('obj-aurelia-kethra', ['aurelia', 'kethra']),
-    regionsObjective('obj-aurelia-sarmenia', ['aurelia', 'sarmenia']),
-    regionsObjective('obj-norvenda-ysmar', ['norvenda', 'ysmar']),
+    regionsObjective('obj-norvenda-kethra', ['norvenda', 'kethra']),
     regionsObjective('obj-norvenda-meridiana', ['norvenda', 'meridiana']),
-    regionsObjective('obj-kethra-meridiana', ['kethra', 'meridiana'], 1),
+    regionsObjective('obj-aurelia-kethra', ['aurelia', 'kethra']),
+    regionsObjective('obj-aurelia-ysmar', ['aurelia', 'ysmar']),
+    regionsObjective('obj-sarmenia-meridiana', ['sarmenia', 'meridiana'], 1),
     regionsObjective('obj-sarmenia-ysmar', ['sarmenia', 'ysmar'], 1),
     {
       id: 'obj-territori',
@@ -56,7 +56,7 @@ export function buildObjectiveDeck(players: { id: PlayerId; name: string }[]): O
       id: `obj-elimina-${p.id}`,
       kind: 'eliminazione',
       target: p.id,
-      text: `Elimina dalla mappa ${p.name}.`,
+      text: `Distruggi tutte le armate di ${p.name}.`,
       fallback: {
         id: 'obj-territori-riserva',
         kind: 'territori',
