@@ -8,7 +8,7 @@ import { ActionTray } from './ActionTray';
 import { PhaseTrack, Seats, Stemma } from './PlayerBoard';
 import { LogPanel } from './LogPanel';
 import { CardsTray } from './CardsTray';
-import { ObjectiveCard, PassTheTable, RulesPanel, Tutorial, VictoryOverlay } from './Overlays';
+import { InsegnaTurno, ObjectiveCard, PassTheTable, RulesPanel, Tutorial, VictoryOverlay } from './Overlays';
 import { Icona } from './Icons';
 import { SEATS } from './palette';
 import {
@@ -51,6 +51,8 @@ export function GameScreen({ api, prefs, onPrefs, onExit, onNewGame }: GameScree
   const [flash, setFlash] = useState<TerritoryId[]>([]);
   const [damage, setDamage] = useState<{ id: number; territory: TerritoryId; amount: number }[]>([]);
   const [reviewing, setReviewing] = useState(false);
+  const [insegna, setInsegna] = useState<{ id: PlayerId; nome: string; seat: number; chiave: number } | null>(null);
+  const [fuoco, setFuoco] = useState<{ key: string; ids: TerritoryId[] } | null>(null);
   const damageCounter = useRef(0);
 
   const humans = state.players.filter((p) => p.kind === 'umano' && p.alive);
@@ -69,28 +71,83 @@ export function GameScreen({ api, prefs, onPrefs, onExit, onNewGame }: GameScree
   // --- animazioni guidate dagli eventi ---
   useEffect(() => {
     if (!api.batch.events.length) return;
-    const conquests: TerritoryId[] = [];
-    const hits: { id: number; territory: TerritoryId; amount: number }[] = [];
-    let rolled = false;
+    const conquiste: TerritoryId[] = [];
+    const variazioni: { id: number; territory: TerritoryId; amount: number }[] = [];
+    const coinvolti: TerritoryId[] = [];
+    let lanciato = false;
+    let nuovoTurno: { id: PlayerId; nome: string; seat: number } | null = null;
+
+    const segna = (territory: TerritoryId, amount: number) => {
+      if (!amount) return;
+      variazioni.push({ id: ++damageCounter.current, territory, amount });
+      coinvolti.push(territory);
+    };
+
     for (const event of api.batch.events) {
-      if (event.type === 'attacco/risolto') {
-        rolled = true;
-        if (event.roll.attackerLosses)
-          hits.push({ id: ++damageCounter.current, territory: event.from, amount: event.roll.attackerLosses });
-        if (event.roll.defenderLosses)
-          hits.push({ id: ++damageCounter.current, territory: event.to, amount: event.roll.defenderLosses });
+      switch (event.type) {
+        case 'attacco/risolto':
+          lanciato = true;
+          segna(event.from, -event.roll.attackerLosses);
+          segna(event.to, -event.roll.defenderLosses);
+          break;
+        case 'territorio/conquistato':
+          conquiste.push(event.territory);
+          coinvolti.push(event.territory);
+          break;
+        case 'attacco/dichiarato':
+          coinvolti.push(event.from, event.to);
+          break;
+        case 'rinforzo/posa':
+          segna(event.territory, event.count);
+          break;
+        case 'armate/avanzate':
+        case 'spostamento/eseguito':
+          segna(event.to, event.armies);
+          break;
+        case 'carte/giocate':
+          if (event.bonusTerritory) segna(event.bonusTerritory, 2);
+          break;
+        case 'turno/iniziato': {
+          const giocatore = state.players.find((p) => p.id === event.player);
+          if (giocatore) nuovoTurno = { id: giocatore.id, nome: giocatore.name, seat: giocatore.seat };
+          break;
+        }
+        default:
+          break;
       }
-      if (event.type === 'territorio/conquistato') conquests.push(event.territory);
     }
-    if (rolled && prefs.animazioni) {
+
+    if (nuovoTurno) setInsegna({ ...nuovoTurno, chiave: api.batch.id });
+    if (conquiste.length) setFlash(conquiste);
+    if (variazioni.length) setDamage((d) => [...d, ...variazioni]);
+
+    // mentre giocano gli altri la telecamera segue l'azione, cosi' il turno
+    // dei bot si guarda come una partita vera invece di indovinare dove
+    // stia succedendo qualcosa
+    if (coinvolti.length && prefs.animazioni && !mine) {
+      setFuoco({ key: `${api.batch.id}`, ids: [...new Set(coinvolti)] });
+    }
+
+    if (lanciato && prefs.animazioni) {
       setRolling(true);
-      const timer = window.setTimeout(() => setRolling(false), 520);
+      const timer = window.setTimeout(() => setRolling(false), 620);
       return () => window.clearTimeout(timer);
     }
-    if (conquests.length) setFlash(conquests);
-    if (hits.length) setDamage((d) => [...d, ...hits]);
     return;
-  }, [api.batch, prefs.animazioni]);
+  }, [api.batch, prefs.animazioni, mine, state.players]);
+
+  useEffect(() => {
+    if (!insegna) return;
+    const timer = window.setTimeout(() => setInsegna(null), 1700);
+    return () => window.clearTimeout(timer);
+  }, [insegna]);
+
+  // quando torna il proprio turno la carta si riapre tutta: si riprende in
+  // mano il tavolo invece di restare puntati dove giocava l'ultimo bot
+  useEffect(() => {
+    if (!mine || !prefs.animazioni) return;
+    setFuoco({ key: `tutto-${state.turn}`, ids: [] });
+  }, [mine, state.turn, prefs.animazioni]);
 
   useEffect(() => {
     if (!flash.length) return;
@@ -398,6 +455,7 @@ export function GameScreen({ api, prefs, onPrefs, onExit, onNewGame }: GameScree
           arrow={arrow}
           flash={flash}
           damage={damage}
+          focus={fuoco}
           showPatterns={prefs.simboli}
           animate={prefs.animazioni}
         />
@@ -409,6 +467,16 @@ export function GameScreen({ api, prefs, onPrefs, onExit, onNewGame }: GameScree
         )}
 
         <div className={`tavolo__tavolino tavolo__tavolino--${traySide}`}>{tray}</div>
+
+        {insegna && (
+          <InsegnaTurno
+            key={insegna.chiave}
+            nome={insegna.nome}
+            seat={insegna.seat}
+            tuo={controlled.includes(insegna.id)}
+            turno={state.turn}
+          />
+        )}
 
         <LogPanel state={state} open={logOpen} onClose={() => setLogOpen(false)} />
         <RulesPanel open={rulesOpen} onClose={() => setRulesOpen(false)} prefs={prefs} onPrefs={onPrefs} />

@@ -29,8 +29,12 @@ strategico avviene solo fra territori confinanti.
 
 ## Cosa c'è dentro
 
-- **Carta interattiva in SVG**, con territori dai contorni organici (niente
-  griglie), rotte marittime, rilievo delle coste, bussola, zoom e trascinamento.
+- **Carta interattiva in SVG** disegnata come un tabellone stampato: territori
+  dai contorni organici (niente griglie), fondali digradanti attorno alle
+  coste, grana della carta, cartigli delle macro-regioni con il bonus, rotte
+  marittime, bussola, zoom e trascinamento a 60 fotogrammi al secondo.
+- **Pedine con rilievo**: dischi sfaccettati che si impilano al crescere delle
+  armate, con riflesso, ombra sul tabellone e stemma della casa.
 - **Turno in tre fasi** — rinforzo, attacco, spostamento — scandite da una
   plancia sempre visibile.
 - **Combattimento a dadi** all'italiana — fino a tre dadi anche in difesa —
@@ -123,6 +127,29 @@ Territori: 42  Regioni: 6
 Dimensioni, bonus e numero di strozzature ricalcano quelli di un tabellone
 classico: l'arcipelago è piccolo e difendibile, la grande regione orientale
 rende molto ma è esposta su sei fronti.
+
+## Come resta fluida
+
+Una carta con quarantadue territori, altrettante pedine, fondali e ornamenti e'
+facile da rendere pesante. Tre scelte la tengono a pieno regime:
+
+- **La telecamera non passa da React.** Posizione e ingrandimento vivono in un
+  riferimento e vengono scritti direttamente sul nodo SVG dentro un
+  `requestAnimationFrame` (`src/ui/useCamera.ts`): trascinare la carta non
+  ridisegna nulla.
+- **Niente filtri SVG sulle superfici grandi.** Ombre e rilievi sono
+  approssimati con geometria (cornici concentriche, copie scure sfalsate):
+  un `feDropShadow` su tutto il tabellone costringerebbe il browser a
+  rigenerare la sfocatura a ogni fotogramma della panoramica.
+- **I dettagli si sospendono mentre la carta si muove.** Nomi, grana e reticolo
+  spariscono durante il trascinamento e tornano da soli un attimo dopo.
+
+Misurato con il browser vero, trascinando la carta: si e' passati da 15 a 60
+fotogrammi al secondo.
+
+I nomi dei territori non si sovrappongono mai perche' la loro posizione e'
+calcolata una volta sola dal generatore, provando per ciascuno una serie di
+collocazioni e tenendo la prima libera da pedine e da altri nomi.
 
 ## Architettura
 

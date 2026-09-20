@@ -33,8 +33,10 @@ export interface TerritoryData {
   size: number;
   /** contorno SVG già pronto */
   path: string;
-  /** ancora per segnalino ed etichetta, sempre interna al territorio */
+  /** ancora per il segnalino, sempre interna al territorio */
   center: Point;
+  /** scostamento del nome rispetto all'ancora, calcolato per non sovrapporsi */
+  label: Point;
   neighbours: TerritoryId[];
 }
 

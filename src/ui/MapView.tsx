@@ -1,13 +1,20 @@
 /**
  * Il tavolo di gioco.
  *
- * Tutta la mappa è un solo SVG: nessuna griglia, nessuna lista di
- * territori. Si gioca toccando la carta.
+ * Tutta la mappa e' un solo SVG: nessuna griglia, nessuna lista di territori.
+ * Si gioca toccando la carta.
+ *
+ * Due accorgimenti tengono il disegno fluido:
+ *  - la telecamera scrive il proprio transform fuori da React (useCamera), per
+ *    cui trascinare o ingrandire non ridisegna nulla;
+ *  - ogni territorio e ogni pedina sono componenti memoizzati con proprieta'
+ *    elementari, per cui un'azione ridisegna solo le caselle che cambiano.
  */
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
-import { WORLD, type TerritoryId, territory } from '../game/world';
+import { memo, useCallback, useEffect, useRef } from 'react';
+import { WORLD, type TerritoryId, region, territory } from '../game/world';
 import type { GameState } from '../game/types';
 import { SEATS, symbolPath } from './palette';
+import { useCamera } from './useCamera';
 
 export type TerritoryMood = 'normale' | 'selezionabile' | 'selezionato' | 'bersaglio' | 'collegato' | 'spento';
 
@@ -19,21 +26,15 @@ export interface MapViewProps {
   arrow?: { from: TerritoryId; to: TerritoryId; tone: 'attacco' | 'spostamento' } | null;
   /** territori da far pulsare dopo un evento */
   flash?: TerritoryId[];
-  /** perdite da mostrare sulla carta, come gettoni tolti dal tavolo */
+  /** variazioni di armate da mostrare sulla carta, come gettoni tolti dal tavolo */
   damage?: { id: number; territory: TerritoryId; amount: number }[];
+  /** territori da inquadrare: cambiando la chiave la telecamera ci si sposta */
+  focus?: { key: string; ids: TerritoryId[] } | null;
   showPatterns: boolean;
   animate: boolean;
 }
 
-const TOKEN_R = 22;
-
-interface Viewport {
-  k: number;
-  x: number;
-  y: number;
-}
-
-const FIT: Viewport = { k: 1, x: 0, y: 0 };
+const TOKEN_R = 23;
 
 export const MapView = memo(function MapView({
   state,
@@ -42,385 +43,468 @@ export const MapView = memo(function MapView({
   arrow,
   flash = [],
   damage = [],
+  focus,
   showPatterns,
   animate,
 }: MapViewProps) {
-  const svgRef = useRef<SVGSVGElement>(null);
-  const [view, setView] = useState<Viewport>(FIT);
-  const drag = useRef<{ x: number; y: number; moved: number; pointer: number } | null>(null);
-  const pinch = useRef<Map<number, { x: number; y: number }>>(new Map());
-
   const vb = WORLD.viewBox;
+  const camera = useCamera(vb, !animate);
+  const trascinamento = useRef<{ x: number; y: number; mosso: number; puntatore: number } | null>(null);
+  const pizzico = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const distanzaPizzico = useRef(0);
+  const primaInquadratura = useRef(false);
 
-  const clamp = useCallback((v: Viewport): Viewport => {
-    const k = Math.min(6, Math.max(0.75, v.k));
-    const span = { x: vb.width * (k - 1), y: vb.height * (k - 1) };
-    return {
-      k,
-      x: Math.min(span.x * 0.5 + vb.width * 0.15, Math.max(-span.x - vb.width * 0.15, v.x)),
-      y: Math.min(span.y * 0.5 + vb.height * 0.15, Math.max(-span.y - vb.height * 0.15, v.y)),
-    };
-  }, [vb.height, vb.width]);
+  // --- telecamera: prima inquadratura e messa a fuoco sull'azione ---
+  useEffect(() => {
+    if (primaInquadratura.current) return;
+    primaInquadratura.current = true;
+    camera.inquadraTutto(0);
+  }, [camera]);
 
-  const toLocal = useCallback((clientX: number, clientY: number) => {
-    const svg = svgRef.current;
-    if (!svg) return { x: 0, y: 0 };
-    const rect = svg.getBoundingClientRect();
-    const scale = Math.max(vb.width / rect.width, vb.height / rect.height);
-    return {
-      x: vb.x + (clientX - rect.left - rect.width / 2) * scale + vb.width / 2,
-      y: vb.y + (clientY - rect.top - rect.height / 2) * scale + vb.height / 2,
-    };
-  }, [vb]);
+  useEffect(() => {
+    const el = camera.svg.current;
+    if (!el) return;
+    const osservatore = new ResizeObserver(() => camera.scrivi());
+    osservatore.observe(el);
+    return () => osservatore.disconnect();
+  }, [camera]);
 
-  const onWheel = useCallback(
-    (e: React.WheelEvent) => {
+  const chiaveFuoco = focus?.key ?? '';
+  useEffect(() => {
+    if (!chiaveFuoco) return;
+    // senza territori indicati si torna a inquadrare tutto il tabellone
+    if (!focus?.ids.length) camera.inquadraTutto();
+    else camera.inquadra(focus.ids.map((id) => territory(id).center));
+  }, [chiaveFuoco]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // --- puntatore ---
+  useEffect(() => {
+    const nodo = camera.svg.current;
+    if (!nodo) return;
+    const suRotella = (e: WheelEvent) => {
       e.preventDefault();
-      const point = toLocal(e.clientX, e.clientY);
-      setView((v) => {
-        const k = v.k * (e.deltaY < 0 ? 1.12 : 1 / 1.12);
-        const factor = k / v.k;
-        return clamp({
-          k,
-          x: point.x - (point.x - v.x) * factor,
-          y: point.y - (point.y - v.y) * factor,
-        });
-      });
-    },
-    [clamp, toLocal],
-  );
+      camera.zoomSu(e.clientX, e.clientY, e.deltaY < 0 ? 1.14 : 1 / 1.14);
+    };
+    nodo.addEventListener('wheel', suRotella, { passive: false });
+    return () => nodo.removeEventListener('wheel', suRotella);
+  }, [camera]);
 
-  useEffect(() => {
-    const node = svgRef.current;
-    if (!node) return;
-    const handler = (e: Event) => e.preventDefault();
-    node.addEventListener('wheel', handler, { passive: false });
-    return () => node.removeEventListener('wheel', handler);
-  }, []);
-
-  // su schermi stretti e alti la carta intera resterebbe minuscola:
-  // si parte gia' avvicinati, lasciando al giocatore lo zoom per il colpo d'occhio
-  const adattato = useRef(false);
-  useEffect(() => {
-    const node = svgRef.current;
-    if (!node || adattato.current) return;
-    const rect = node.getBoundingClientRect();
-    if (!rect.width || !rect.height) return;
-    adattato.current = true;
-    const rapporto = vb.width / vb.height / (rect.width / rect.height);
-    if (rapporto <= 1.2) return;
-    const k = Math.min(rapporto, 2.6);
-    // lo zoom avviene attorno all'origine: si compensa per tenere fermo
-    // il centro della carta
-    const cx = vb.x + vb.width / 2;
-    const cy = vb.y + vb.height / 2;
-    setView(() => clamp({ k, x: cx * (1 - k), y: cy * (1 - k) }));
-  }, [clamp, vb.height, vb.width]);
-
-  const onPointerDown = (e: React.PointerEvent) => {
-    pinch.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (pinch.current.size === 1) {
-      drag.current = { x: e.clientX, y: e.clientY, moved: 0, pointer: e.pointerId };
+  const giuPuntatore = (e: React.PointerEvent) => {
+    pizzico.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pizzico.current.size === 1) {
+      trascinamento.current = { x: e.clientX, y: e.clientY, mosso: 0, puntatore: e.pointerId };
       (e.target as Element).setPointerCapture?.(e.pointerId);
     }
   };
 
-  const onPointerMove = (e: React.PointerEvent) => {
-    if (!pinch.current.has(e.pointerId)) return;
-    const previous = pinch.current.get(e.pointerId)!;
-    pinch.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  const muoviPuntatore = (e: React.PointerEvent) => {
+    if (!pizzico.current.has(e.pointerId)) return;
+    const precedente = pizzico.current.get(e.pointerId)!;
+    pizzico.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
 
-    if (pinch.current.size >= 2) {
-      const [a, b] = [...pinch.current.values()];
-      const distance = Math.hypot(a.x - b.x, a.y - b.y);
-      const last = (pinch.current as unknown as { lastDistance?: number }).lastDistance;
-      if (last) {
-        const centre = toLocal((a.x + b.x) / 2, (a.y + b.y) / 2);
-        setView((v) => {
-          const k = v.k * (distance / last);
-          const factor = k / v.k;
-          return clamp({ k, x: centre.x - (centre.x - v.x) * factor, y: centre.y - (centre.y - v.y) * factor });
-        });
+    if (pizzico.current.size >= 2) {
+      const [a, b] = [...pizzico.current.values()];
+      const distanza = Math.hypot(a.x - b.x, a.y - b.y);
+      if (distanzaPizzico.current) {
+        camera.zoomSu((a.x + b.x) / 2, (a.y + b.y) / 2, distanza / distanzaPizzico.current);
       }
-      (pinch.current as unknown as { lastDistance?: number }).lastDistance = distance;
+      distanzaPizzico.current = distanza;
       return;
     }
 
-    if (!drag.current || drag.current.pointer !== e.pointerId) return;
-    const dx = e.clientX - previous.x;
-    const dy = e.clientY - previous.y;
-    drag.current.moved += Math.abs(dx) + Math.abs(dy);
-    const svg = svgRef.current;
-    if (!svg) return;
-    const rect = svg.getBoundingClientRect();
-    const scale = Math.max(vb.width / rect.width, vb.height / rect.height);
-    setView((v) => clamp({ ...v, x: v.x + dx * scale, y: v.y + dy * scale }));
+    if (!trascinamento.current || trascinamento.current.puntatore !== e.pointerId) return;
+    const dx = e.clientX - precedente.x;
+    const dy = e.clientY - precedente.y;
+    trascinamento.current.mosso += Math.abs(dx) + Math.abs(dy);
+    camera.trascina(dx, dy);
   };
 
-  const endPointer = (e: React.PointerEvent) => {
-    pinch.current.delete(e.pointerId);
-    if (pinch.current.size < 2) delete (pinch.current as unknown as { lastDistance?: number }).lastDistance;
+  const suPuntatore = (e: React.PointerEvent) => {
+    pizzico.current.delete(e.pointerId);
+    if (pizzico.current.size < 2) distanzaPizzico.current = 0;
   };
 
-  const handleClick = (id: TerritoryId) => (e: React.MouseEvent) => {
-    if (drag.current && drag.current.moved > 8) return;
-    onPick(id, { shift: e.shiftKey, alt: e.altKey || e.metaKey || e.button === 2 });
-  };
+  const scegli = useCallback(
+    (id: TerritoryId, mods: { shift: boolean; alt: boolean }) => {
+      if (trascinamento.current && trascinamento.current.mosso > 8) return;
+      onPick(id, mods);
+    },
+    [onPick],
+  );
 
-  const seatOf = (id: TerritoryId) => {
-    const owner = state.territories[id].owner;
-    const player = state.players.find((p) => p.id === owner);
-    return player ? SEATS[player.seat] : null;
-  };
-
-  const transform = `translate(${view.x} ${view.y}) scale(${view.k})`;
-  const dimmed = Object.values(moods).some((m) => m === 'spento');
+  const spenta = Object.values(moods).some((m) => m === 'spento');
 
   return (
     <div className="mappa">
       <svg
-        ref={svgRef}
-        className="mappa__svg"
+        ref={camera.svg}
+        className={`mappa__svg${spenta ? ' mappa__svg--concentrata' : ''}`}
         viewBox={`${vb.x} ${vb.y} ${vb.width} ${vb.height}`}
         preserveAspectRatio="xMidYMid meet"
         role="application"
         aria-label="Carta di Vhaldor"
-        onWheel={onWheel}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={endPointer}
-        onPointerCancel={endPointer}
+        onPointerDown={giuPuntatore}
+        onPointerMove={muoviPuntatore}
+        onPointerUp={suPuntatore}
+        onPointerCancel={suPuntatore}
         onContextMenu={(e) => e.preventDefault()}
       >
-        <defs>
-          <filter id="tavoliere-alone" x="-10%" y="-10%" width="120%" height="120%">
-            <feDropShadow dx="0" dy="16" stdDeviation="24" floodColor="#000" floodOpacity="0.6" />
-          </filter>
-          <radialGradient id="oceano" cx="50%" cy="42%" r="78%">
-            <stop offset="0%" stopColor="#EDE3CE" />
-            <stop offset="70%" stopColor="#E2D7BF" />
-            <stop offset="100%" stopColor="#D2C4A6" />
-          </radialGradient>
-          <filter id="rilievo" x="-20%" y="-20%" width="140%" height="140%">
-            <feDropShadow dx="0" dy="10" stdDeviation="12" floodColor="#4A3A22" floodOpacity="0.28" />
-          </filter>
-          <clipPath id="tavoliere-taglio">
-            <rect x={vb.x} y={vb.y} width={vb.width} height={vb.height} rx="22" />
-          </clipPath>
-          <filter id="pedina-ombra" x="-60%" y="-60%" width="220%" height="220%">
-            <feDropShadow dx="0" dy="2.5" stdDeviation="2.4" floodColor="#2A2015" floodOpacity="0.45" />
-          </filter>
-          {SEATS.map((seat, i) => (
-            <pattern
-              key={seat.pattern}
-              id={`trama-${i}`}
-              width="16"
-              height="16"
-              patternUnits="userSpaceOnUse"
-              patternTransform="rotate(12)"
-            >
-              {seat.pattern === 'diagonale' && <path d="M0 16 L16 0" stroke={seat.color} strokeWidth="3" opacity="0.5" />}
-              {seat.pattern === 'punti' && <circle cx="4" cy="4" r="2.4" fill={seat.color} opacity="0.5" />}
-              {seat.pattern === 'reticolo' && (
-                <path d="M0 8 H16 M8 0 V16" stroke={seat.color} strokeWidth="2.2" opacity="0.45" />
-              )}
-              {seat.pattern === 'verticale' && <path d="M4 0 V16" stroke={seat.color} strokeWidth="3.4" opacity="0.45" />}
-              {seat.pattern === 'onde' && (
-                <path d="M0 10 Q4 4 8 10 T16 10" fill="none" stroke={seat.color} strokeWidth="2.4" opacity="0.5" />
-              )}
-              {seat.pattern === 'pieno' && <rect width="16" height="16" fill={seat.color} opacity="0.14" />}
-            </pattern>
+        <Definizioni />
+
+        <g ref={camera.nodo}>
+          {/* ombra del tabellone come cornici concentriche: un filtro qui
+              costringerebbe il browser a rigenerare la sfocatura a ogni
+              fotogramma della panoramica */}
+          {[
+            { d: 34, o: 0.16 },
+            { d: 20, o: 0.22 },
+            { d: 9, o: 0.3 },
+          ].map((strato) => (
+            <rect
+              key={strato.d}
+              className="mappa__ombra-tavoliere"
+              x={vb.x - strato.d}
+              y={vb.y - strato.d + 10}
+              width={vb.width + strato.d * 2}
+              height={vb.height + strato.d * 2}
+              rx={26 + strato.d}
+              opacity={strato.o}
+            />
           ))}
-          <marker id="punta-attacco" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="7" markerHeight="7" orient="auto">
-            <path d="M0 0 L12 6 L0 12 Z" fill="#B3402C" />
-          </marker>
-          <marker id="punta-spostamento" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="7" markerHeight="7" orient="auto">
-            <path d="M0 0 L12 6 L0 12 Z" fill="#2F6E4F" />
-          </marker>
-        </defs>
-
-        <g transform={transform}>
-          <rect
-            className="mappa__ombra-tavoliere"
-            x={vb.x}
-            y={vb.y}
-            width={vb.width}
-            height={vb.height}
-            rx="22"
-            filter="url(#tavoliere-alone)"
-          />
-        </g>
-
-        <g transform={transform} clipPath="url(#tavoliere-taglio)">
           <rect
             className="mappa__tavoliere"
             x={vb.x}
             y={vb.y}
             width={vb.width}
             height={vb.height}
-            rx="22"
+            rx="26"
             fill="url(#oceano)"
           />
-          {/* reticolo dell'oceano: appena accennato, come su una carta nautica */}
-          <g className="mappa__graticola" aria-hidden="true">
-            {Array.from({ length: 9 }, (_, i) => (
-              <path
-                key={`par-${i}`}
-                d={`M${vb.x} ${vb.y + (vb.height / 8) * i} Q ${vb.x + vb.width / 2} ${
-                  vb.y + (vb.height / 8) * i - 26
-                } ${vb.x + vb.width} ${vb.y + (vb.height / 8) * i}`}
-              />
-            ))}
-            {Array.from({ length: 13 }, (_, i) => (
-              <path
-                key={`mer-${i}`}
-                d={`M${vb.x + (vb.width / 12) * i} ${vb.y} Q ${vb.x + (vb.width / 12) * i + 18} ${
-                  vb.y + vb.height / 2
-                } ${vb.x + (vb.width / 12) * i} ${vb.y + vb.height}`}
-              />
-            ))}
-          </g>
 
-          {/* silhouette dei continenti: dà spessore alla costa */}
-          <g filter="url(#rilievo)">
-            {WORLD.landmasses.map((l) => (
-              <path key={l.id} d={l.path} fill="#CBBB9C" />
-            ))}
-          </g>
+          <g>
+            {/* reticolo dell'oceano, appena accennato come su una carta nautica */}
+            <g className="mappa__graticola" aria-hidden="true">
+              {Array.from({ length: 9 }, (_, i) => (
+                <path
+                  key={`par-${i}`}
+                  d={`M${vb.x} ${vb.y + (vb.height / 8) * i} Q ${vb.x + vb.width / 2} ${
+                    vb.y + (vb.height / 8) * i - 26
+                  } ${vb.x + vb.width} ${vb.y + (vb.height / 8) * i}`}
+                />
+              ))}
+              {Array.from({ length: 13 }, (_, i) => (
+                <path
+                  key={`mer-${i}`}
+                  d={`M${vb.x + (vb.width / 12) * i} ${vb.y} Q ${vb.x + (vb.width / 12) * i + 18} ${
+                    vb.y + vb.height / 2
+                  } ${vb.x + (vb.width / 12) * i} ${vb.y + vb.height}`}
+                />
+              ))}
+            </g>
 
-          <g className="mappa__rotte" aria-hidden="true">
-            {WORLD.seaRoutes.map((r) => (
-              <path key={`${r.from}-${r.to}`} d={rottaMarittima(r.a, r.b)} />
-            ))}
-          </g>
-
-          <g className="mappa__territori">
-            {WORLD.territories.map((t) => {
-              const seat = seatOf(t.id);
-              const mood = moods[t.id] ?? 'normale';
-              const armies = state.territories[t.id].armies;
-              const owner = state.players.find((p) => p.id === state.territories[t.id].owner);
-              return (
-                <g
-                  key={t.id}
-                  className={`territorio territorio--${mood}${flash.includes(t.id) ? ' territorio--lampo' : ''}`}
-                  onClick={handleClick(t.id)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      onPick(t.id, { shift: e.shiftKey, alt: e.altKey });
-                    }
-                  }}
-                  tabIndex={mood === 'selezionabile' || mood === 'bersaglio' || mood === 'collegato' ? 0 : -1}
-                  role="button"
-                  aria-label={`${t.name}, ${owner ? owner.name : 'nessuno'}, ${armies} armate`}
-                >
-                  <path className="territorio__terra" d={t.path} fill={seat ? seat.land : '#F0E7D5'} />
-                  {showPatterns && seat && owner && (
-                    <path className="territorio__trama" d={t.path} fill={`url(#trama-${owner.seat})`} />
-                  )}
-                  <path className="territorio__bordo" d={t.path} />
+            {/* fondali: anelli di profondita' attorno a ogni massa di terra */}
+            <g className="mappa__fondali" aria-hidden="true">
+              {WORLD.landmasses.map((l) => (
+                <g key={l.id}>
+                  <path d={l.path} className="fondale fondale--due" />
+                  <path d={l.path} className="fondale fondale--uno" />
                 </g>
-              );
-            })}
-          </g>
+              ))}
+            </g>
 
-          <g className="mappa__coste" aria-hidden="true">
-            {WORLD.landmasses.map((l) => (
-              <path key={l.id} d={l.path} />
-            ))}
-          </g>
+            <g className="mappa__rotte" aria-hidden="true">
+              {WORLD.seaRoutes.map((r) => (
+                <path key={`${r.from}-${r.to}`} d={rottaMarittima(r.a, r.b)} />
+              ))}
+            </g>
 
-          {arrow && <AttackArrow from={arrow.from} to={arrow.to} tone={arrow.tone} animate={animate} />}
+            {/* silhouette dei continenti: da' spessore alla costa */}
+            <g className="mappa__zolle" aria-hidden="true">
+              {WORLD.landmasses.map((l) => (
+                <path key={`ombra-${l.id}`} className="zolla__ombra" d={l.path} transform="translate(0 11)" />
+              ))}
+              {WORLD.landmasses.map((l) => (
+                <path key={l.id} className="zolla" d={l.path} />
+              ))}
+            </g>
 
-          <Compass x={vb.x + 150} y={vb.y + vb.height - 150} />
+            <g className="mappa__territori">
+              {WORLD.territories.map((t) => {
+                const casella = state.territories[t.id];
+                const proprietario = state.players.find((p) => p.id === casella.owner);
+                return (
+                  <Territorio
+                    key={t.id}
+                    id={t.id}
+                    nome={t.name}
+                    path={t.path}
+                    seat={proprietario ? proprietario.seat : -1}
+                    proprietario={proprietario ? proprietario.name : 'nessuno'}
+                    armate={casella.armies}
+                    umore={moods[t.id] ?? 'normale'}
+                    lampo={flash.includes(t.id)}
+                    trama={showPatterns}
+                    onPick={scegli}
+                  />
+                );
+              })}
+            </g>
 
-          <g className="mappa__etichette" aria-hidden="true">
-            {WORLD.regions.map((r) => (
-              <g key={r.id} className="regione-etichetta">
-                <text x={r.label.x} y={r.label.y}>
-                  {r.name.toUpperCase()}
-                </text>
-                <text className="regione-etichetta__bonus" x={r.label.x} y={r.label.y + 30}>
-                  +{r.bonus} armate
-                </text>
-              </g>
-            ))}
-          </g>
+            {/* confini delle macro-regioni, come sul tabellone stampato */}
+            <g className="mappa__coste" aria-hidden="true">
+              {WORLD.landmasses.map((l) => (
+                <path key={l.id} d={l.path} stroke={region(l.id).accent} />
+              ))}
+            </g>
 
-          <g className="mappa__pedine">
-            {WORLD.territories.map((t) => {
-              const owner = state.players.find((p) => p.id === state.territories[t.id].owner);
-              const seat = owner ? SEATS[owner.seat] : null;
-              const armies = state.territories[t.id].armies;
-              const mood = moods[t.id] ?? 'normale';
-              return (
-                <g
+            <g className="mappa__grana" aria-hidden="true">
+              <rect x={vb.x} y={vb.y} width={vb.width} height={vb.height} fill="url(#grana)" />
+            </g>
+
+            {arrow && <AttackArrow from={arrow.from} to={arrow.to} tone={arrow.tone} animate={animate} />}
+
+            <Bussola x={vb.x + 165} y={vb.y + vb.height - 165} />
+
+            <g className="mappa__cartigli" aria-hidden="true">
+              {WORLD.regions.map((r) => (
+                <Cartiglio key={r.id} nome={r.name} bonus={r.bonus} accent={r.accent} x={r.label.x} y={r.label.y} />
+              ))}
+            </g>
+
+            <g className="mappa__nomi" aria-hidden="true">
+              {WORLD.territories.map((t) => (
+                <text
                   key={t.id}
-                  className={`pedina pedina--${mood}${flash.includes(t.id) ? ' pedina--lampo' : ''}`}
-                  transform={`translate(${t.center.x} ${t.center.y})`}
-                  aria-hidden="true"
+                  className="pedina__nome"
+                  x={t.center.x + t.label.x}
+                  y={t.center.y + t.label.y}
                 >
-                  <text className="pedina__nome" y={TOKEN_R + 25}>
-                    {t.name}
-                  </text>
-                  <g filter="url(#pedina-ombra)">
-                    {armies >= 10 && <circle className="pedina__pila" cx={5} cy={5} r={TOKEN_R} fill={seat?.color} />}
-                    {armies >= 5 && <circle className="pedina__pila" cx={2.5} cy={2.5} r={TOKEN_R} fill={seat?.color} />}
-                    <circle className="pedina__disco" r={TOKEN_R} fill={seat?.color ?? '#9C917E'} />
-                    <circle className="pedina__anello" r={TOKEN_R - 4} />
-                    <text className="pedina__numero" fill={seat?.ink ?? '#fff'} y={1}>
-                      {armies}
-                    </text>
-                  </g>
-                  {seat && (
-                    <g className="pedina__stemma" transform={`translate(0 ${-TOKEN_R - 5})`}>
-                      <circle r={9} />
-                      <path d={symbolPath(seat.symbol, 5.2)} fill={seat.color} />
-                    </g>
-                  )}
-                </g>
-              );
-            })}
+                  {t.name}
+                </text>
+              ))}
+            </g>
+
+            <g className="mappa__pedine">
+              {WORLD.territories.map((t) => {
+                const casella = state.territories[t.id];
+                const proprietario = state.players.find((p) => p.id === casella.owner);
+                return (
+                  <Pedina
+                    key={t.id}
+                    x={t.center.x}
+                    y={t.center.y}
+                    armate={casella.armies}
+                    seat={proprietario ? proprietario.seat : -1}
+                    umore={moods[t.id] ?? 'normale'}
+                    lampo={flash.includes(t.id)}
+                  />
+                );
+              })}
+            </g>
+
+            <g className="mappa__perdite" aria-hidden="true">
+              {damage.map((d) => (
+                <text
+                  key={d.id}
+                  className={`perdita${d.amount > 0 ? ' perdita--piu' : ''}`}
+                  x={territory(d.territory).center.x}
+                  y={territory(d.territory).center.y - 34}
+                >
+                  {d.amount > 0 ? `+${d.amount}` : d.amount}
+                </text>
+              ))}
+            </g>
+
+            <rect
+              className="mappa__vignetta"
+              x={vb.x}
+              y={vb.y}
+              width={vb.width}
+              height={vb.height}
+              rx="26"
+              fill="url(#vignetta)"
+            />
           </g>
-          <g className="mappa__perdite" aria-hidden="true">
-            {damage.map((d) => (
-              <text
-                key={d.id}
-                className="perdita"
-                x={territory(d.territory).center.x}
-                y={territory(d.territory).center.y - 30}
-              >
-                −{d.amount}
-              </text>
-            ))}
-          </g>
+
           <rect
             className="mappa__cornice"
-            x={vb.x + 5}
-            y={vb.y + 5}
-            width={vb.width - 10}
-            height={vb.height - 10}
-            rx="18"
+            x={vb.x + 6}
+            y={vb.y + 6}
+            width={vb.width - 12}
+            height={vb.height - 12}
+            rx="20"
           />
         </g>
       </svg>
 
       <div className="mappa__zoom" role="group" aria-label="Ingrandimento della carta">
-        <button type="button" onClick={() => setView((v) => clamp({ ...v, k: v.k * 1.25 }))} aria-label="Avvicina">
+        <button type="button" onClick={() => camera.zoomCentro(1.35)} aria-label="Avvicina">
           +
         </button>
-        <button type="button" onClick={() => setView((v) => clamp({ ...v, k: v.k / 1.25 }))} aria-label="Allontana">
+        <button type="button" onClick={() => camera.zoomCentro(1 / 1.35)} aria-label="Allontana">
           −
         </button>
-        <button type="button" onClick={() => setView(FIT)} aria-label="Inquadra tutta la carta">
+        <button type="button" onClick={() => camera.inquadraTutto()} aria-label="Inquadra tutta la carta">
           ⤢
         </button>
       </div>
-      {dimmed && <span className="mappa__suggerimento-schermo" aria-hidden="true" />}
     </div>
   );
 });
+
+// --- territorio -----------------------------------------------------------
+
+interface TerritorioProps {
+  id: TerritoryId;
+  nome: string;
+  path: string;
+  seat: number;
+  proprietario: string;
+  armate: number;
+  umore: TerritoryMood;
+  lampo: boolean;
+  trama: boolean;
+  onPick(id: TerritoryId, mods: { shift: boolean; alt: boolean }): void;
+}
+
+const Territorio = memo(function Territorio({
+  id,
+  nome,
+  path,
+  seat,
+  proprietario,
+  armate,
+  umore,
+  lampo,
+  trama,
+  onPick,
+}: TerritorioProps) {
+  const casa = seat >= 0 ? SEATS[seat] : null;
+  const attivabile = umore === 'selezionabile' || umore === 'bersaglio' || umore === 'collegato';
+  return (
+    <g
+      className={`territorio territorio--${umore}${lampo ? ' territorio--lampo' : ''}`}
+      onClick={(e) => onPick(id, { shift: e.shiftKey, alt: e.altKey || e.metaKey })}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onPick(id, { shift: e.shiftKey, alt: e.altKey });
+        }
+      }}
+      tabIndex={attivabile ? 0 : -1}
+      role="button"
+      aria-label={`${nome}, ${proprietario}, ${armate} armate`}
+    >
+      <path className="territorio__terra" d={path} fill={casa ? casa.land : '#E4D8BC'} />
+      {trama && casa && <path className="territorio__trama" d={path} fill={`url(#trama-${seat})`} />}
+      <path className="territorio__rilievo" d={path} />
+      <path className="territorio__bordo" d={path} stroke={casa ? casa.edge : '#8A7550'} />
+    </g>
+  );
+});
+
+// --- pedina ---------------------------------------------------------------
+
+interface PedinaProps {
+  x: number;
+  y: number;
+  armate: number;
+  seat: number;
+  umore: TerritoryMood;
+  lampo: boolean;
+}
+
+/** quanti dischi impilare: la pila cresce con le armate, come sul tavolo */
+function altezzaPila(armate: number): number {
+  if (armate >= 13) return 3;
+  if (armate >= 7) return 2;
+  if (armate >= 4) return 1;
+  return 0;
+}
+
+const Pedina = memo(function Pedina({ x, y, armate, seat, umore, lampo }: PedinaProps) {
+  const casa = seat >= 0 ? SEATS[seat] : null;
+  const pila = altezzaPila(armate);
+  const cima = -pila * 6;
+  return (
+    <g
+      className={`pedina pedina--${umore}${lampo ? ' pedina--lampo' : ''}`}
+      transform={`translate(${x} ${y})`}
+      aria-hidden="true"
+    >
+      <ellipse className="pedina__ombra" cy={9} rx={TOKEN_R * 1.05} ry={TOKEN_R * 0.42} />
+      <g className="pedina__gruppo" key={armate}>
+        {Array.from({ length: pila }, (_, i) => (
+          <circle key={i} className="pedina__strato" cy={-i * 6} r={TOKEN_R} fill={casa?.dark ?? '#6A6154'} />
+        ))}
+        <circle className="pedina__disco" cy={cima} r={TOKEN_R} fill={casa ? `url(#disco-${seat})` : '#9C917E'} />
+        <circle
+          className="pedina__rim"
+          cy={cima}
+          r={TOKEN_R - 1}
+          stroke={casa?.dark ?? '#4A4335'}
+        />
+        <circle className="pedina__solco" cy={cima} r={TOKEN_R - 5.5} stroke={casa?.light ?? '#fff'} />
+        <path
+          className="pedina__luce"
+          d={`M${-TOKEN_R * 0.68} ${cima - TOKEN_R * 0.42} A ${TOKEN_R * 0.82} ${TOKEN_R * 0.82} 0 0 1 ${
+            TOKEN_R * 0.34
+          } ${cima - TOKEN_R * 0.76}`}
+        />
+        <text className="pedina__numero" y={cima + 1} fill={casa?.ink ?? '#fff'}>
+          {armate}
+        </text>
+        {casa && (
+          <g className="pedina__stemma" transform={`translate(0 ${cima - TOKEN_R - 3})`}>
+            <circle r={8.5} />
+            <path d={symbolPath(casa.symbol, 4.8)} fill={casa.color} />
+          </g>
+        )}
+      </g>
+    </g>
+  );
+});
+
+// --- ornamenti ------------------------------------------------------------
+
+function Cartiglio({
+  nome,
+  bonus,
+  accent,
+  x,
+  y,
+}: {
+  nome: string;
+  bonus: number;
+  accent: string;
+  x: number;
+  y: number;
+}) {
+  const larghezza = nome.length * 27 + 150;
+  return (
+    <g className="cartiglio" transform={`translate(${x} ${y})`}>
+      <rect className="cartiglio__fondo" x={-larghezza / 2} y={-30} width={larghezza} height={48} rx={24} />
+      <rect
+        className="cartiglio__filo"
+        x={-larghezza / 2 + 4}
+        y={-26}
+        width={larghezza - 8}
+        height={40}
+        rx={20}
+        stroke={accent}
+      />
+      <text className="cartiglio__nome" x={-26} y={2} fill={accent}>
+        {nome.toUpperCase()}
+      </text>
+      <g transform={`translate(${larghezza / 2 - 44} -6)`}>
+        <path className="cartiglio__scudo" d="M-19 -16 H19 V4 Q19 16 0 22 Q-19 16 -19 4 Z" fill={accent} />
+        <text className="cartiglio__bonus" y={5}>
+          +{bonus}
+        </text>
+      </g>
+    </g>
+  );
+}
 
 /** Arco di una rotta marittima: piu' e' lunga, piu' si inarca sull'oceano
  *  aperto, cosi' non attraversa le terre emerse che le stanno in mezzo. */
@@ -430,19 +514,23 @@ function rottaMarittima(a: { x: number; y: number }, b: { x: number; y: number }
   return `M${a.x} ${a.y} Q ${(a.x + b.x) / 2} ${(a.y + b.y) / 2 - curva} ${b.x} ${b.y}`;
 }
 
-function Compass({ x, y }: { x: number; y: number }) {
-  const punte = [0, 90, 180, 270];
+function Bussola({ x, y }: { x: number; y: number }) {
   return (
     <g className="bussola" transform={`translate(${x} ${y})`} aria-hidden="true">
-      <circle r="58" />
-      <circle r="44" />
-      {punte.map((a) => (
-        <path key={a} className="bussola__punta" d="M0 -56 L11 0 L0 20 L-11 0 Z" transform={`rotate(${a})`} />
+      <circle r="62" />
+      <circle r="47" />
+      {[0, 90, 180, 270].map((a) => (
+        <path key={a} className="bussola__punta" d="M0 -58 L11 0 L0 20 L-11 0 Z" transform={`rotate(${a})`} />
       ))}
       {[45, 135, 225, 315].map((a) => (
-        <path key={a} className="bussola__punta bussola__punta--minore" d="M0 -38 L7 0 L0 13 L-7 0 Z" transform={`rotate(${a})`} />
+        <path
+          key={a}
+          className="bussola__punta bussola__punta--minore"
+          d="M0 -40 L7 0 L0 13 L-7 0 Z"
+          transform={`rotate(${a})`}
+        />
       ))}
-      <text className="bussola__nord" y="-66">
+      <text className="bussola__nord" y="-70">
         N
       </text>
     </g>
@@ -466,19 +554,96 @@ function AttackArrow({
   const my = (a.y + b.y) / 2;
   const dx = b.x - a.x;
   const dy = b.y - a.y;
-  const length = Math.hypot(dx, dy) || 1;
-  // arco leggero, perpendicolare alla congiungente
-  const bend = Math.min(60, length * 0.18);
-  const cx = mx - (dy / length) * bend;
-  const cy = my + (dx / length) * bend;
-  const shrink = 30 / length;
-  const start = { x: a.x + dx * shrink, y: a.y + dy * shrink };
-  const end = { x: b.x - dx * shrink, y: b.y - dy * shrink };
+  const lunghezza = Math.hypot(dx, dy) || 1;
+  const curva = Math.min(60, lunghezza * 0.18);
+  const cx = mx - (dy / lunghezza) * curva;
+  const cy = my + (dx / lunghezza) * curva;
+  const taglio = 32 / lunghezza;
+  const inizio = { x: a.x + dx * taglio, y: a.y + dy * taglio };
+  const fine = { x: b.x - dx * taglio, y: b.y - dy * taglio };
+  const d = `M${inizio.x} ${inizio.y} Q ${cx} ${cy} ${fine.x} ${fine.y}`;
   return (
-    <path
-      className={`freccia freccia--${tone}${animate ? ' freccia--viva' : ''}`}
-      d={`M${start.x} ${start.y} Q ${cx} ${cy} ${end.x} ${end.y}`}
-      markerEnd={`url(#punta-${tone})`}
-    />
+    <g className={`freccia freccia--${tone}${animate ? ' freccia--viva' : ''}`}>
+      <path className="freccia__alone" d={d} />
+      <path className="freccia__tratto" d={d} markerEnd={`url(#punta-${tone})`} />
+    </g>
   );
 }
+
+// --- definizioni comuni ---------------------------------------------------
+
+const Definizioni = memo(function Definizioni() {
+  return (
+    <defs>
+      <radialGradient id="oceano" cx="50%" cy="40%" r="80%">
+        <stop offset="0%" stopColor="#F0E7D2" />
+        <stop offset="62%" stopColor="#E2D6BA" />
+        <stop offset="100%" stopColor="#CFBE9B" />
+      </radialGradient>
+
+      <radialGradient id="vignetta" cx="50%" cy="48%" r="72%">
+        <stop offset="60%" stopColor="#3A2E16" stopOpacity="0" />
+        <stop offset="100%" stopColor="#3A2E16" stopOpacity="0.3" />
+      </radialGradient>
+
+      {SEATS.map((seat, i) => (
+        <radialGradient key={seat.name} id={`disco-${i}`} cx="32%" cy="26%" r="82%">
+          <stop offset="0%" stopColor={seat.light} />
+          <stop offset="42%" stopColor={seat.color} />
+          <stop offset="88%" stopColor={seat.color} />
+          <stop offset="100%" stopColor={seat.dark} />
+        </radialGradient>
+      ))}
+
+      {/* grana della carta: un motivo minuscolo ripetuto, molto piu' leggero
+          di un filtro di rumore su tutta la superficie */}
+      <pattern id="grana" width="180" height="180" patternUnits="userSpaceOnUse">
+        <circle cx="22" cy="31" r="1.6" fill="#7A6642" opacity="0.12" />
+        <circle cx="104" cy="16" r="1.3" fill="#7A6642" opacity="0.1" />
+        <circle cx="152" cy="74" r="1.7" fill="#7A6642" opacity="0.11" />
+        <circle cx="58" cy="112" r="1.2" fill="#7A6642" opacity="0.1" />
+        <circle cx="131" cy="148" r="1.5" fill="#7A6642" opacity="0.12" />
+        <circle cx="12" cy="162" r="1.3" fill="#7A6642" opacity="0.1" />
+        <circle cx="86" cy="62" r="1.1" fill="#7A6642" opacity="0.09" />
+        <circle cx="168" cy="122" r="1.2" fill="#7A6642" opacity="0.1" />
+      </pattern>
+
+      {SEATS.map((seat, i) => (
+        <pattern
+          key={seat.pattern}
+          id={`trama-${i}`}
+          width="16"
+          height="16"
+          patternUnits="userSpaceOnUse"
+          patternTransform="rotate(12)"
+        >
+          {seat.pattern === 'diagonale' && <path d="M0 16 L16 0" stroke={seat.dark} strokeWidth="2.6" opacity="0.4" />}
+          {seat.pattern === 'punti' && <circle cx="4" cy="4" r="2.2" fill={seat.dark} opacity="0.38" />}
+          {seat.pattern === 'reticolo' && (
+            <path d="M0 8 H16 M8 0 V16" stroke={seat.dark} strokeWidth="1.9" opacity="0.34" />
+          )}
+          {seat.pattern === 'verticale' && <path d="M4 0 V16" stroke={seat.dark} strokeWidth="3" opacity="0.34" />}
+          {seat.pattern === 'onde' && (
+            <path d="M0 10 Q4 4 8 10 T16 10" fill="none" stroke={seat.dark} strokeWidth="2.2" opacity="0.38" />
+          )}
+          {seat.pattern === 'pieno' && <rect width="16" height="16" fill={seat.dark} opacity="0.12" />}
+        </pattern>
+      ))}
+
+      <marker id="punta-attacco" viewBox="0 0 12 12" refX="9" refY="6" markerWidth="6" markerHeight="6" orient="auto">
+        <path d="M0 0 L12 6 L0 12 Z" fill="#C0392B" />
+      </marker>
+      <marker
+        id="punta-spostamento"
+        viewBox="0 0 12 12"
+        refX="9"
+        refY="6"
+        markerWidth="6"
+        markerHeight="6"
+        orient="auto"
+      >
+        <path d="M0 0 L12 6 L0 12 Z" fill="#2F8055" />
+      </marker>
+    </defs>
+  );
+});
