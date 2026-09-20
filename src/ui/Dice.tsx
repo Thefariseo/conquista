@@ -17,20 +17,23 @@ export const Die = memo(function Die({
   tone,
   outcome,
   rolling,
-  size = 44,
+  indice = 0,
+  size = 46,
 }: {
   value: number;
   tone: DiceTone;
   /** esito del confronto con il dado avversario */
   outcome?: 'vinto' | 'perso' | null;
   rolling?: boolean;
+  /** posizione nella fila: sfalsa il lancio, cosi' i dadi non si muovono all'unisono */
+  indice?: number;
   size?: number;
 }) {
   const offset = size * 0.24;
   return (
     <span
       className={`dado dado--${tone}${rolling ? ' dado--lancio' : ''}${outcome ? ` dado--${outcome}` : ''}`}
-      style={{ width: size, height: size }}
+      style={{ width: size, height: size, animationDelay: rolling ? `${indice * 70}ms` : undefined }}
       aria-hidden="true"
     >
       <svg viewBox={`${-size / 2} ${-size / 2} ${size} ${size}`} width={size} height={size}>
@@ -68,7 +71,7 @@ export function DiceRow({
       <span className="dadi__etichetta">{label}</span>
       <div className="dadi__fila">
         {values.map((v, i) => (
-          <Die key={i} value={v} tone={tone} outcome={outcomes?.[i] ?? null} rolling={rolling} />
+          <Die key={i} value={v} tone={tone} outcome={outcomes?.[i] ?? null} rolling={rolling} indice={i} />
         ))}
         {!values.length && <span className="dadi__vuoto">—</span>}
       </div>

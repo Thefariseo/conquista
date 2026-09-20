@@ -292,67 +292,114 @@ button {
   cursor: grabbing;
 }
 
+.mappa__svg > g {
+  will-change: transform;
+}
+
+/* durante panoramica e zoom si sospende cio' che costa di piu' disegnare;
+   torna da solo appena la carta si ferma */
+.mappa__svg--in-movimento .mappa__nomi,
+.mappa__svg--in-movimento .pedina__stemma,
+.mappa__svg--in-movimento .mappa__grana,
+.mappa__svg--in-movimento .mappa__graticola,
+.mappa__svg--in-movimento .territorio__rilievo {
+  display: none;
+}
+
+.mappa__ombra-tavoliere {
+  fill: #050706;
+}
+
+.mappa__cornice {
+  fill: none;
+  stroke: rgba(74, 58, 34, 0.42);
+  stroke-width: 4;
+  pointer-events: none;
+}
+
+.mappa__vignetta,
+.mappa__grana rect {
+  pointer-events: none;
+}
+
 .mappa__graticola path {
   fill: none;
-  stroke: rgba(122, 104, 74, 0.16);
+  stroke: rgba(122, 104, 74, 0.15);
   stroke-width: 1.4;
+}
+
+/* fondali: anelli di profondita' attorno alle terre emerse */
+.fondale {
+  fill: none;
+  stroke-linejoin: round;
+}
+
+.fondale--due {
+  stroke: rgba(126, 107, 72, 0.13);
+  stroke-width: 42;
+}
+
+.fondale--uno {
+  stroke: rgba(126, 107, 72, 0.2);
+  stroke-width: 16;
 }
 
 .mappa__rotte path {
   fill: none;
-  stroke: rgba(90, 74, 50, 0.5);
-  stroke-width: 3;
-  stroke-dasharray: 9 13;
+  stroke: rgba(88, 72, 46, 0.55);
+  stroke-width: 3.2;
+  stroke-dasharray: 10 14;
   stroke-linecap: round;
+}
+
+.zolla {
+  fill: #CDBC99;
+}
+
+.zolla__ombra {
+  fill: rgba(74, 58, 34, 0.32);
 }
 
 .mappa__coste path {
   fill: none;
-  stroke: rgba(70, 56, 34, 0.5);
-  stroke-width: 4.5;
+  stroke-width: 5;
   stroke-linejoin: round;
+  opacity: 0.75;
   pointer-events: none;
 }
+
+/* --- territori ----------------------------------------------------------- */
 
 .territorio {
   cursor: default;
 }
 
 .territorio__terra {
-  transition: fill 0.3s ease, opacity 0.25s ease, filter 0.2s ease;
+  transition: fill 0.45s ease, opacity 0.3s ease, filter 0.25s ease;
 }
 
 .territorio__trama {
   pointer-events: none;
-  opacity: 0.42;
+  opacity: 0.5;
+  transition: opacity 0.3s ease;
 }
 
-.mappa__ombra-tavoliere {
-  fill: #0B0E0D;
-}
-
-.mappa__cornice {
+/* velatura interna che stacca il territorio dal fondo, come l'inchiostro
+   sulla carta stampata */
+.territorio__rilievo {
   fill: none;
-  stroke: rgba(70, 56, 34, 0.35);
-  stroke-width: 3;
+  stroke: rgba(255, 252, 240, 0.22);
+  stroke-width: 2;
+  stroke-linejoin: round;
   pointer-events: none;
 }
 
 .territorio__bordo {
   fill: none;
-  stroke: rgba(62, 49, 30, 0.55);
-  stroke-width: 2;
+  stroke-width: 2.8;
   stroke-linejoin: round;
   pointer-events: none;
-  transition: stroke 0.2s ease, stroke-width 0.2s ease;
-}
-
-.territorio--spento .territorio__terra {
-  opacity: 0.42;
-}
-
-.territorio--spento .territorio__trama {
-  opacity: 0.12;
+  transition: stroke 0.3s ease, stroke-width 0.2s ease;
 }
 
 .territorio:focus {
@@ -360,8 +407,16 @@ button {
 }
 
 .territorio:focus-visible .territorio__bordo {
-  stroke: #F7E3AE;
-  stroke-width: 7;
+  stroke: #F7E3AE !important;
+  stroke-width: 8;
+}
+
+.territorio--spento .territorio__terra {
+  opacity: 0.55;
+}
+
+.territorio--spento .territorio__trama {
+  opacity: 0.14;
 }
 
 .territorio--selezionabile {
@@ -369,17 +424,17 @@ button {
 }
 
 .territorio--selezionabile:hover .territorio__terra {
-  filter: brightness(1.07) saturate(1.1);
+  filter: brightness(1.1) saturate(1.12);
 }
 
 .territorio--selezionabile .territorio__bordo {
-  stroke: rgba(194, 160, 89, 0.85);
-  stroke-width: 3;
+  stroke: rgba(255, 238, 190, 0.9) !important;
+  stroke-width: 3.4;
 }
 
 .territorio--selezionato .territorio__bordo {
-  stroke: #F0D18B;
-  stroke-width: 6;
+  stroke: #FFE9A8 !important;
+  stroke-width: 7;
 }
 
 .territorio--bersaglio {
@@ -387,10 +442,10 @@ button {
 }
 
 .territorio--bersaglio .territorio__bordo {
-  stroke: var(--rosso);
-  stroke-width: 5;
-  stroke-dasharray: 16 11;
-  animation: scorri 1.1s linear infinite;
+  stroke: #E04A32 !important;
+  stroke-width: 6;
+  stroke-dasharray: 18 12;
+  animation: scorri 1s linear infinite;
 }
 
 .territorio--collegato {
@@ -398,130 +453,142 @@ button {
 }
 
 .territorio--collegato .territorio__bordo {
-  stroke: var(--verde);
-  stroke-width: 4;
-  stroke-dasharray: 11 9;
-  animation: scorri 1.6s linear infinite;
+  stroke: #3FA06B !important;
+  stroke-width: 5;
+  stroke-dasharray: 12 10;
+  animation: scorri 1.5s linear infinite;
 }
 
 .territorio--lampo .territorio__terra {
-  animation: conquista 1.1s ease-out;
+  animation: conquista 1.2s ease-out;
 }
 
 @keyframes scorri {
   to {
-    stroke-dashoffset: -27;
+    stroke-dashoffset: -30;
   }
 }
 
+/* il territorio conquistato si accende di luce calda, senza sbiancare */
 @keyframes conquista {
   0% {
-    filter: brightness(2.1) saturate(0.4);
+    filter: brightness(1.75) saturate(1.5) hue-rotate(-6deg);
+  }
+  45% {
+    filter: brightness(1.28) saturate(1.3);
   }
   100% {
     filter: none;
   }
 }
 
-.freccia {
-  fill: none;
-  stroke-width: 6;
-  stroke-linecap: round;
-  pointer-events: none;
-}
-
-.freccia--attacco {
-  stroke: var(--rosso);
-}
-
-.freccia--spostamento {
-  stroke: var(--verde);
-}
-
-.freccia--viva {
-  stroke-dasharray: 16 12;
-  animation: scorri 0.9s linear infinite;
-}
-
-.regione-etichetta text {
-  font-family: var(--serif);
-  font-size: 38px;
-  letter-spacing: 0.34em;
-  text-anchor: middle;
-  fill: rgba(96, 78, 50, 0.5);
-  pointer-events: none;
-}
-
-.regione-etichetta__bonus {
-  font-size: 20px !important;
-  letter-spacing: 0.12em !important;
-  fill: rgba(96, 78, 50, 0.38) !important;
-}
+/* --- pedine -------------------------------------------------------------- */
 
 .mappa__pedine,
-.mappa__etichette,
+.mappa__nomi,
+.mappa__cartigli,
 .mappa__perdite {
   pointer-events: none;
 }
 
 .pedina__nome {
   font-family: var(--serif);
-  font-size: 21px;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   text-anchor: middle;
-  fill: #4A3C25;
+  fill: #3E3120;
   paint-order: stroke;
-  stroke: rgba(240, 232, 214, 0.85);
-  stroke-width: 4px;
+  stroke: rgba(246, 239, 222, 0.92);
+  stroke-width: 4.5px;
   stroke-linejoin: round;
 }
 
-.pedina__disco,
-.pedina__pila {
-  stroke: rgba(36, 28, 16, 0.85);
-  stroke-width: 2;
+.pedina__ombra {
+  fill: rgba(58, 44, 20, 0.34);
 }
 
-.pedina__pila {
-  opacity: 0.55;
+.pedina__gruppo {
+  animation: posa-pedina 0.34s cubic-bezier(0.2, 1.5, 0.4, 1);
+  transform-box: fill-box;
+  transform-origin: center;
 }
 
-.pedina__anello {
-  fill: none;
-  stroke: rgba(255, 255, 255, 0.28);
+@keyframes posa-pedina {
+  0% {
+    transform: scale(1.32);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.pedina__strato {
+  stroke: rgba(30, 24, 12, 0.55);
   stroke-width: 1.4;
+}
+
+.pedina__disco {
+  stroke: none;
+}
+
+.pedina__rim {
+  fill: none;
+  stroke-width: 3;
+}
+
+/* riflesso sulla faccia superiore: e' cio' che fa sembrare la pedina
+   un oggetto e non un cerchio colorato */
+.pedina__luce {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.55);
+  stroke-width: 3.4;
+  stroke-linecap: round;
+}
+
+.pedina__solco {
+  fill: none;
+  stroke-width: 1.3;
+  opacity: 0.42;
 }
 
 .pedina__numero {
   font-family: var(--sans);
   font-size: 23px;
-  font-weight: 700;
+  font-weight: 800;
   text-anchor: middle;
   dominant-baseline: central;
+  paint-order: stroke;
+  stroke: rgba(0, 0, 0, 0.25);
+  stroke-width: 0.6px;
 }
 
 .pedina__stemma circle {
-  fill: #F2EADA;
-  stroke: rgba(36, 28, 16, 0.75);
-  stroke-width: 1.5;
+  fill: #F6EFDE;
+  stroke: rgba(40, 30, 14, 0.7);
+  stroke-width: 1.4;
 }
 
-.pedina--selezionato .pedina__disco,
-.pedina--bersaglio .pedina__disco {
-  stroke: #F0D18B;
-  stroke-width: 3.5;
+.pedina--selezionato .pedina__rim,
+.pedina--bersaglio .pedina__rim {
+  stroke: #FFE9A8;
+  stroke-width: 3.6;
 }
 
 .pedina--spento {
-  opacity: 0.45;
+  opacity: 0.4;
 }
 
-.pedina--lampo .pedina__disco {
+.pedina--lampo .pedina__gruppo {
   animation: pulsa 1.1s ease-out;
 }
 
 @keyframes pulsa {
   0% {
-    transform: scale(1.5);
+    transform: scale(1.75);
+  }
+  60% {
+    transform: scale(0.94);
   }
   100% {
     transform: scale(1);
@@ -530,28 +597,122 @@ button {
 
 .perdita {
   font-family: var(--serif);
-  font-size: 30px;
+  font-size: 32px;
   font-weight: 700;
   text-anchor: middle;
-  fill: var(--rosso);
+  fill: #B3301C;
   paint-order: stroke;
-  stroke: rgba(240, 232, 214, 0.9);
-  stroke-width: 5px;
-  animation: perdita 0.9s ease-out forwards;
+  stroke: rgba(246, 239, 222, 0.95);
+  stroke-width: 6px;
+  animation: perdita 1s ease-out forwards;
+}
+
+.perdita--piu {
+  fill: #2F8055;
 }
 
 @keyframes perdita {
   0% {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(12px) scale(0.8);
   }
-  25% {
+  22% {
     opacity: 1;
+    transform: translateY(0) scale(1);
   }
   100% {
     opacity: 0;
-    transform: translateY(-34px);
+    transform: translateY(-42px) scale(1);
   }
+}
+
+/* --- ornamenti ----------------------------------------------------------- */
+
+.cartiglio__fondo {
+  fill: rgba(247, 240, 222, 0.66);
+}
+
+.cartiglio__filo {
+  fill: none;
+  stroke-width: 1.6;
+  opacity: 0.55;
+}
+
+.cartiglio__nome {
+  font-family: var(--serif);
+  font-size: 34px;
+  font-weight: 600;
+  letter-spacing: 0.26em;
+  text-anchor: middle;
+  opacity: 0.92;
+}
+
+.cartiglio__scudo {
+  opacity: 0.92;
+}
+
+.cartiglio__bonus {
+  font-family: var(--sans);
+  font-size: 20px;
+  font-weight: 800;
+  text-anchor: middle;
+  fill: #FBF5E6;
+}
+
+.bussola circle {
+  fill: none;
+  stroke: rgba(122, 104, 74, 0.3);
+  stroke-width: 1.6;
+}
+
+.bussola__punta {
+  fill: rgba(122, 104, 74, 0.32);
+  stroke: rgba(122, 104, 74, 0.42);
+  stroke-width: 1;
+}
+
+.bussola__punta--minore {
+  fill: rgba(122, 104, 74, 0.16);
+}
+
+.bussola__nord {
+  font-family: var(--serif);
+  font-size: 27px;
+  text-anchor: middle;
+  fill: rgba(122, 104, 74, 0.5);
+  letter-spacing: 0.1em;
+}
+
+.freccia {
+  pointer-events: none;
+}
+
+.freccia__alone,
+.freccia__tratto {
+  fill: none;
+  stroke-linecap: round;
+}
+
+.freccia__alone {
+  stroke: rgba(255, 246, 222, 0.85);
+  stroke-width: 11;
+}
+
+.freccia__tratto {
+  stroke-width: 6;
+}
+
+.freccia--attacco .freccia__tratto {
+  stroke: #C0392B;
+}
+
+.freccia--spostamento .freccia__tratto {
+  stroke: #2F8055;
+}
+
+.freccia--viva .freccia__tratto {
+  stroke-dasharray: 18 13;
+  animation: scorri 0.85s linear infinite;
 }
 
 .mappa__zoom {
@@ -564,22 +725,20 @@ button {
 }
 
 .mappa__zoom button {
-  width: 34px;
-  height: 34px;
-  border-radius: 9px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
   border: 1px solid var(--bordo);
-  background: rgba(15, 20, 18, 0.82);
+  background: rgba(15, 20, 18, 0.84);
   color: var(--testo);
   cursor: pointer;
   backdrop-filter: blur(3px);
+  transition: border-color 0.18s ease, background 0.18s ease;
 }
 
 .mappa__zoom button:hover {
   border-color: var(--ottone-scuro);
-}
-
-.mappa__suggerimento-schermo {
-  display: none;
+  background: rgba(24, 30, 27, 0.92);
 }
 
 /* --- suggerimento e avvisi ---------------------------------------------- */
@@ -665,13 +824,13 @@ button {
   background: linear-gradient(180deg, rgba(27, 34, 31, 0.97), rgba(15, 20, 18, 0.97));
   box-shadow: var(--ombra);
   backdrop-filter: blur(8px);
-  animation: sali 0.22s ease-out;
+  animation: sali 0.32s cubic-bezier(0.22, 1.2, 0.36, 1);
 }
 
 @keyframes sali {
   from {
     opacity: 0;
-    transform: translateY(12px);
+    transform: translateY(18px) scale(0.97);
   }
 }
 
@@ -791,22 +950,37 @@ button {
 }
 
 .dado--lancio {
-  animation: lancio 0.5s ease-out;
+  animation: lancio 0.62s cubic-bezier(0.22, 0.9, 0.3, 1) both;
 }
 
+/* il dado viene lanciato in aria, rotola e si assesta con un rimbalzo */
 @keyframes lancio {
   0% {
-    transform: translateY(-14px) rotate(-22deg) scale(0.85);
+    transform: translateY(-30px) rotate(-160deg) scale(0.7);
+    filter: blur(1.2px);
   }
-  45% {
-    transform: translateY(3px) rotate(14deg) scale(1.06);
+  35% {
+    transform: translateY(2px) rotate(60deg) scale(1.12);
+    filter: blur(0.4px);
   }
-  70% {
-    transform: translateY(-3px) rotate(-6deg);
+  55% {
+    transform: translateY(-8px) rotate(96deg) scale(1.02);
+    filter: none;
+  }
+  75% {
+    transform: translateY(1px) rotate(84deg) scale(1.04);
+  }
+  88% {
+    transform: translateY(-2px) rotate(90deg);
   }
   100% {
-    transform: none;
+    transform: translateY(0) rotate(90deg);
   }
+}
+
+.dado__corpo,
+.dado__pallino {
+  transition: fill 0.2s ease;
 }
 
 /* --- contatore ----------------------------------------------------------- */
@@ -1456,6 +1630,58 @@ button {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
+}
+
+/* --- insegna del turno ---------------------------------------------------- */
+
+.insegna {
+  --tinta: var(--ottone);
+  position: absolute;
+  top: 22px;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 22px 10px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--bordo-forte);
+  border-left: 4px solid var(--tinta);
+  background: linear-gradient(180deg, rgba(28, 35, 32, 0.96), rgba(13, 18, 16, 0.96));
+  box-shadow: var(--ombra);
+  backdrop-filter: blur(6px);
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 5;
+  animation: insegna 1.7s cubic-bezier(0.22, 0.9, 0.3, 1) forwards;
+}
+
+.insegna span {
+  font-family: var(--serif);
+  font-size: 17px;
+}
+
+.insegna em {
+  font-style: normal;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--testo-tenue);
+}
+
+@keyframes insegna {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -26px) scale(0.94);
+  }
+  12%,
+  72% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -14px) scale(0.98);
+  }
 }
 
 /* --- veli (dialoghi) ------------------------------------------------------ */

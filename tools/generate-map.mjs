@@ -302,6 +302,58 @@ for (const region of REGIONS) {
   });
 }
 
+// --- 5b. posizione delle etichette --------------------------------------
+// Il nome sta sotto la pedina. Dove i territori sono minuscoli finirebbe
+// coperto da una pedina vicina o da un altro nome, percio' per ognuno si
+// prova una serie di collocazioni e si tiene la prima libera.
+const ALTEZZA_ETICHETTA = 26;
+const RAGGIO_PEDINA = 27;
+
+const CANDIDATE = [
+  { x: 0, y: 52 },
+  { x: 0, y: -46 },
+  { x: 0, y: 72 },
+  { x: 0, y: -66 },
+  { x: 46, y: 46 },
+  { x: -46, y: 46 },
+  { x: 46, y: -42 },
+  { x: -46, y: -42 },
+  { x: 0, y: 92 },
+  { x: 0, y: -86 },
+];
+
+const larghezzaNome = (nome) => nome.length * 11.5 + 12;
+const piazzate = [];
+
+function tocca(a, b) {
+  return (
+    Math.abs(a.x - b.x) < (a.larghezza + b.larghezza) / 2 &&
+    Math.abs(a.y - b.y) < ALTEZZA_ETICHETTA
+  );
+}
+
+function sopraUnaPedina(riquadro) {
+  return out.territories.some(
+    (t) =>
+      Math.abs(riquadro.x - t.center.x) < riquadro.larghezza / 2 + RAGGIO_PEDINA &&
+      Math.abs(riquadro.y - t.center.y) < ALTEZZA_ETICHETTA / 2 + RAGGIO_PEDINA,
+  );
+}
+
+for (const t of out.territories) {
+  const larghezza = larghezzaNome(t.name);
+  let scelta = CANDIDATE[0];
+  for (const c of CANDIDATE) {
+    const riquadro = { x: t.center.x + c.x, y: t.center.y + c.y, larghezza };
+    if (sopraUnaPedina(riquadro)) continue;
+    if (piazzate.some((p) => tocca(riquadro, p))) continue;
+    scelta = c;
+    break;
+  }
+  piazzate.push({ x: t.center.x + scelta.x, y: t.center.y + scelta.y, larghezza });
+  t.label = { x: scelta.x, y: scelta.y };
+}
+
 const byId = new Map(out.territories.map((t) => [t.id, t]));
 out.seaRoutes = SEA_ROUTES.map(([a, b]) => ({
   from: a,

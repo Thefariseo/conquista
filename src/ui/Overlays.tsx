@@ -311,3 +311,14 @@ export function RulesPanel({
     </aside>
   );
 }
+
+/** Insegna che annuncia il turno: compare sul tavolo e sparisce da sola. */
+export function InsegnaTurno({ nome, seat, tuo, turno }: { nome: string; seat: number; tuo: boolean; turno: number }) {
+  return (
+    <div className="insegna" style={{ ['--tinta' as string]: SEATS[seat].color }} aria-hidden="true">
+      <Stemma seat={seat} size={26} />
+      <span>{tuo ? `Tocca a ${nome}` : nome}</span>
+      <em>turno {turno}</em>
+    </div>
+  );
+}
